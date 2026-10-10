@@ -30,6 +30,8 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
   const [showFullScenario, setShowFullScenario] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [showNoteField, setShowNoteField] = useState(false);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [isNoteSaved, setIsNoteSaved] = useState(false);
 
   // Sync initial name or participant name if present in room
   useEffect(() => {
@@ -47,20 +49,34 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
   const myVote = currentRound?.votes[clientId];
   const activeStance = myVote?.currentStance;
 
-  // Sync note from current vote if present (and reset when switching scenarios)
+  // Reset note state when switching scenarios, and sync from room vote if already saved on server
   useEffect(() => {
-    if (myVote?.note !== undefined) {
-      setNoteText(myVote.note);
-      if (myVote.note) {
-        setShowNoteField(true);
-      }
+    const serverNote = myVote?.note?.trim() || '';
+    if (serverNote) {
+      setNoteText(serverNote);
+      setShowNoteField(true);
+      setIsNoteSaved(true);
+      setIsEditingNote(false);
     } else {
       setNoteText('');
       setShowNoteField(false);
+      setIsNoteSaved(false);
+      setIsEditingNote(false);
     }
-    // Reset full scenario collapse on card change
     setShowFullScenario(false);
-  }, [room?.currentScenarioIndex, currentScenario?.id, myVote?.note]);
+  }, [room?.currentScenarioIndex, currentScenario?.id]);
+
+  // Keep saved note synced if updated from server on the current card
+  useEffect(() => {
+    if (myVote?.note !== undefined && !isEditingNote) {
+      const serverNote = myVote.note.trim();
+      setNoteText(serverNote);
+      setIsNoteSaved(Boolean(serverNote));
+      if (serverNote) {
+        setShowNoteField(true);
+      }
+    }
+  }, [myVote?.note, isEditingNote]);
 
   const handleSaveName = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -75,12 +91,34 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
 
   const handleVote = (stance: Stance) => {
     if (!currentScenario) return;
-    channel.sendVote(currentScenario.id, stance, noteText.trim() || undefined);
+    const cleanNote = noteText.trim();
+    if (cleanNote) {
+      setIsNoteSaved(true);
+      setIsEditingNote(false);
+    }
+    channel.sendVote(currentScenario.id, stance, cleanNote || undefined);
   };
 
-  const handleSaveNote = () => {
-    if (!currentScenario || !activeStance) return;
-    channel.sendVote(currentScenario.id, activeStance, noteText.trim() || undefined);
+  const handleSaveNote = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!currentScenario) return;
+    const cleanNote = noteText.trim();
+    if (!cleanNote) {
+      setNoteText('');
+      setIsNoteSaved(false);
+      setIsEditingNote(false);
+      setShowNoteField(false);
+      if (activeStance) {
+        channel.sendVote(currentScenario.id, activeStance, undefined);
+      }
+      return;
+    }
+    setNoteText(cleanNote);
+    setIsNoteSaved(true);
+    setIsEditingNote(false);
+    if (activeStance) {
+      channel.sendVote(currentScenario.id, activeStance, cleanNote);
+    }
   };
 
   if (!room) {
@@ -473,7 +511,11 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
           <div style={{ marginTop: '0.25rem' }}>
             {!showNoteField ? (
               <button
-                onClick={() => setShowNoteField(true)}
+                id="add-vote-note-btn"
+                onClick={() => {
+                  setShowNoteField(true);
+                  setIsEditingNote(true);
+                }}
                 style={{
                   fontSize: '0.82rem',
                   color: 'var(--ink-secondary)',
@@ -484,16 +526,17 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
               >
                 <span>+ Add a 1-line thought for the room (optional)</span>
               </button>
-            ) : (
-              <div
+            ) : isEditingNote || !isNoteSaved ? (
+              <form
+                onSubmit={handleSaveNote}
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.4rem',
+                  gap: '0.45rem',
                   backgroundColor: 'var(--bg-card)',
                   padding: '0.75rem',
                   borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
+                  border: '1px solid var(--border-default)',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -504,7 +547,18 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                     1-Line Thought for the Room:
                   </label>
                   <button
-                    onClick={() => setShowNoteField(false)}
+                    type="button"
+                    onClick={() => {
+                      const saved = myVote?.note?.trim() || '';
+                      if (saved) {
+                        setNoteText(saved);
+                        setIsNoteSaved(true);
+                        setIsEditingNote(false);
+                      } else {
+                        setIsEditingNote(false);
+                        setShowNoteField(false);
+                      }
+                    }}
                     style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}
                   >
                     Cancel
@@ -517,23 +571,86 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     placeholder="Why this stance? (optional)"
+                    autoFocus
                     maxLength={140}
                     style={{
                       flex: 1,
                       padding: '0.5rem 0.65rem',
                       borderRadius: 'var(--radius-sm)',
                       border: '1px solid var(--border-default)',
+                      backgroundColor: '#FFFDF9',
                       fontSize: '0.85rem',
                     }}
                   />
                   <button
                     id="save-vote-note-btn"
-                    onClick={handleSaveNote}
+                    type="submit"
                     className="btn-primary"
                     style={{ padding: '0.5rem 0.85rem', fontSize: '0.82rem' }}
                   >
                     Share
                   </button>
+                </div>
+              </form>
+            ) : (
+              <div
+                id="saved-vote-note-card"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                  backgroundColor: 'var(--bg-tray)',
+                  padding: '0.7rem 0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
+                  borderLeft: '3px solid var(--stance-support-accent)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                  <span
+                    style={{
+                      fontSize: '0.74rem',
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.03em',
+                      color: activeStance ? 'var(--stance-support-text)' : 'var(--stance-depends-text)',
+                    }}
+                  >
+                    {activeStance ? '✓ Shared with the room' : '✓ Saved — tap a stance above to send'}
+                  </span>
+                  <button
+                    id="edit-vote-note-btn"
+                    type="button"
+                    onClick={() => setIsEditingNote(true)}
+                    style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      color: 'var(--ink-secondary)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                    title="Edit your 1-line thought"
+                  >
+                    <span>Edit</span>
+                    <span style={{ fontSize: '0.72rem' }}>✎</span>
+                  </button>
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.88rem',
+                    color: 'var(--ink-primary)',
+                    fontStyle: 'italic',
+                    lineHeight: 1.4,
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  "{noteText}"
                 </div>
               </div>
             )}
