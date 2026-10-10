@@ -58,14 +58,8 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
     }
   }
 
-  const formatNetShift = (val: number) => {
-    if (val > 0) return `+${val}`;
-    if (val < 0) return `${val}`;
-    return '0';
-  };
-
   return (
-    <div className="response-graph" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
+    <div className="response-graph" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%' }}>
       {/* 1. Proportional Stance Bar */}
       <div className="proportional-bar-container">
         <div
@@ -76,7 +70,7 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
             marginBottom: '0.4rem',
           }}
         >
-          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Room Response Distribution
           </span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--ink-muted)' }}>
@@ -132,21 +126,6 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
             </>
           )}
         </div>
-
-        <div className="proportional-bar-legend" style={{ marginTop: '0.35rem' }}>
-          <div className="legend-item" style={{ color: 'var(--stance-support-text)' }}>
-            <span className="legend-swatch support" />
-            <span>Supports ({currentTally.support})</span>
-          </div>
-          <div className="legend-item" style={{ color: 'var(--stance-depends-text)' }}>
-            <span className="legend-swatch depends" />
-            <span>It Depends ({currentTally.depends})</span>
-          </div>
-          <div className="legend-item" style={{ color: 'var(--stance-erode-text)' }}>
-            <span className="legend-swatch erode" />
-            <span>Erodes ({currentTally.erode})</span>
-          </div>
-        </div>
       </div>
 
       {/* 2. Twist Shift Banner & Delta (when Twist Triggered) */}
@@ -157,56 +136,23 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
             backgroundColor: 'var(--stance-depends-tint)',
             border: '1.5px solid var(--stance-depends-border)',
             borderRadius: 'var(--radius-md)',
-            padding: '1rem 1.25rem',
+            padding: '0.85rem 1.15rem',
             display: 'flex',
             flexDirection: 'column',
-            gap: '0.75rem',
+            gap: '0.6rem',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <SparkIcon size={18} style={{ color: 'var(--stance-depends-accent)' }} />
-              <strong style={{ color: 'var(--stance-depends-text)', fontSize: '0.95rem' }}>
-                "What If?" Context Shift Impact
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <SparkIcon size={16} style={{ color: 'var(--stance-depends-accent)' }} />
+              <strong style={{ color: 'var(--stance-depends-text)', fontSize: '0.92rem' }}>
+                {delta.shiftedCount} shifted on "What if?"
               </strong>
-            </div>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.8rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.75)',
-                padding: '0.2rem 0.6rem',
-                borderRadius: 'var(--radius-full)',
-                color: 'var(--stance-depends-text)',
-                fontWeight: 600,
-              }}
-            >
-              {delta.shiftedCount} {delta.shiftedCount === 1 ? 'participant shifted' : 'participants shifted'}
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '0.5rem',
-              fontSize: '0.85rem',
-              color: 'var(--ink-secondary)',
-            }}
-          >
-            <div>
-              <strong>Supports:</strong> {initialTally.support} → {currentTally.support} ({formatNetShift(delta.netShift.support)})
-            </div>
-            <div>
-              <strong>It Depends:</strong> {initialTally.depends} → {currentTally.depends} ({formatNetShift(delta.netShift.depends)})
-            </div>
-            <div>
-              <strong>Erodes:</strong> {initialTally.erode} → {currentTally.erode} ({formatNetShift(delta.netShift.erode)})
             </div>
           </div>
 
           {delta.transitions.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.25rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
               {delta.transitions.map((t, idx) => (
                 <span
                   key={idx}
@@ -264,6 +210,9 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
             ? 'var(--stance-depends-text)'
             : 'var(--stance-erode-text)';
 
+          const notesList = stanceVotes.filter((v) => Boolean(v.note?.trim()));
+          const hasNotes = notesList.length > 0;
+
           return (
             <div
               key={stanceKey}
@@ -272,10 +221,10 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
                 backgroundColor: 'var(--bg-card)',
                 border: `1.5px solid ${borderColor}`,
                 borderRadius: 'var(--radius-lg)',
-                padding: '1.25rem',
+                padding: '1.15rem',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '1rem',
+                gap: '0.85rem',
                 boxShadow: 'var(--shadow-sm)',
               }}
             >
@@ -283,33 +232,28 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
               <div
                 style={{
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.2rem',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                   borderBottom: '1px solid var(--border-subtle)',
-                  paddingBottom: '0.75rem',
+                  paddingBottom: '0.65rem',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <h4 style={{ color: titleColor, fontSize: '1.05rem', margin: 0 }}>
-                    {meta.label}
-                  </h4>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.95rem',
-                      fontWeight: 700,
-                      backgroundColor: tintColor,
-                      color: titleColor,
-                      padding: '0.15rem 0.55rem',
-                      borderRadius: 'var(--radius-full)',
-                    }}
-                  >
-                    {count}
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)', margin: 0 }}>
-                  {meta.subtitle}
-                </p>
+                <h4 style={{ color: titleColor, fontSize: '1.05rem', margin: 0 }}>
+                  {meta.label}
+                </h4>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.95rem',
+                    fontWeight: 700,
+                    backgroundColor: tintColor,
+                    color: titleColor,
+                    padding: '0.15rem 0.55rem',
+                    borderRadius: 'var(--radius-full)',
+                  }}
+                >
+                  {count}
+                </span>
               </div>
 
               {/* Clustered Pebbles */}
@@ -348,41 +292,33 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
                 )}
               </div>
 
-              {/* 1-Line Notes */}
-              {showNotes && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {/* 1-Line Notes (rendered ONLY if notes exist) */}
+              {showNotes && hasNotes && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-muted)', letterSpacing: '0.04em' }}>
                     Participant Notes
                   </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
-                    {stanceVotes.filter((v) => Boolean(v.note)).length === 0 ? (
-                      <span style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', fontStyle: 'italic' }}>
-                        No notes shared
-                      </span>
-                    ) : (
-                      stanceVotes
-                        .filter((v) => Boolean(v.note))
-                        .map((v) => (
-                          <div
-                            key={v.clientId}
-                            style={{
-                              backgroundColor: 'var(--bg-card-subtle)',
-                              borderLeft: `3px solid ${borderColor}`,
-                              borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
-                              padding: '0.4rem 0.6rem',
-                              fontSize: '0.8rem',
-                              lineHeight: 1.35,
-                            }}
-                          >
-                            <span style={{ fontWeight: 600, color: 'var(--ink-primary)' }}>
-                              {v.name}:
-                            </span>{' '}
-                            <span style={{ color: 'var(--ink-secondary)', fontStyle: 'italic' }}>
-                              "{v.note}"
-                            </span>
-                          </div>
-                        ))
-                    )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '180px', overflowY: 'auto' }}>
+                    {notesList.map((v) => (
+                      <div
+                        key={v.clientId}
+                        style={{
+                          backgroundColor: 'var(--bg-card-subtle)',
+                          borderLeft: `3px solid ${borderColor}`,
+                          borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                          padding: '0.4rem 0.6rem',
+                          fontSize: '0.8rem',
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        <span style={{ fontWeight: 600, color: 'var(--ink-primary)' }}>
+                          {v.name}:
+                        </span>{' '}
+                        <span style={{ color: 'var(--ink-secondary)', fontStyle: 'italic' }}>
+                          "{v.note}"
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

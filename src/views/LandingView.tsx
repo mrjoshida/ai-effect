@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { Pebble } from '../components/Pebble';
-import { RITHM_CURRENTS_LIST } from '../content/currents';
-import { CATEGORY_LIST } from '../content/scenarios';
 import { DeckPresetId, ScenarioCategory } from '../types/game';
-import { ExternalLinkIcon, PhoneIcon, ScreenIcon, WaveIcon } from '../components/Icons';
+import { ExternalLinkIcon, PhoneIcon, ScreenIcon } from '../components/Icons';
 
 export interface LandingViewProps {
   onJoinRoom: (code: string, name?: string) => void;
@@ -18,14 +16,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
 }) => {
   const [joinCode, setJoinCode] = useState(initialCode.toUpperCase());
   const [joinName, setJoinName] = useState('');
-  const [showCustomDeck, setShowCustomDeck] = useState(false);
-  const [showCurrentsGuide, setShowCurrentsGuide] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<ScenarioCategory[]>([
-    'coworkers',
-    'grantees',
-    'community',
-    'life',
-  ]);
 
   const handleJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,26 +25,16 @@ export const LandingView: React.FC<LandingViewProps> = ({
     }
   };
 
-  const toggleCategory = (cat: ScenarioCategory) => {
-    if (selectedCategories.includes(cat)) {
-      if (selectedCategories.length > 1) {
-        setSelectedCategories(selectedCategories.filter((c) => c !== cat));
-      }
-    } else {
-      setSelectedCategories([...selectedCategories, cat]);
-    }
-  };
-
   return (
     <div
       className="landing-view"
       style={{
         maxWidth: '1080px',
         margin: '0 auto',
-        padding: '2.5rem 1.5rem',
+        padding: '3rem 1.5rem',
         display: 'flex',
         flexDirection: 'column',
-        gap: '2.5rem',
+        gap: '3rem',
       }}
     >
       {/* Hero Section */}
@@ -73,41 +53,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
           <Pebble variant={2} stance="erode" size="sm" />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              color: 'var(--currents-teal)',
-            }}
-          >
-            An Offsite Card Game &amp; Reflection Studio
-          </span>
-          <span style={{ color: 'var(--border-strong)' }}>•</span>
-          <a
-            href="https://www.therithmproject.org/the-ai-effect"
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-          >
-            <span>The Rithm Project</span>
-            <ExternalLinkIcon size={11} />
-          </a>
-          <span style={{ color: 'var(--border-strong)' }}>•</span>
-          <a
-            href="https://aicurrents.therithmproject.org/"
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-          >
-            <span>The Four Currents</span>
-            <ExternalLinkIcon size={11} />
-          </a>
-        </div>
-
         <h1 style={{ fontSize: '2.8rem', maxWidth: '820px', lineHeight: 1.15 }}>
           The AI Effect — Philanthropy &amp; Human Connection
         </h1>
@@ -123,7 +68,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '1.75rem',
+          gap: '2rem',
         }}
       >
         {/* Path 1: Join a Session */}
@@ -143,10 +88,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <h2 style={{ fontSize: '1.45rem' }}>Join a Session</h2>
             </div>
             <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)', marginBottom: '1.5rem' }}>
-              Entering an offsite room on your phone or laptop? Enter the 4-character room code from the main screen.
+              Entering an offsite room on your phone or laptop? Enter the room code from the main screen.
             </p>
 
-            <form onSubmit={handleJoinSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form onSubmit={handleJoinSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
               <div>
                 <label
                   htmlFor="join-code-input"
@@ -160,7 +105,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                     marginBottom: '0.35rem',
                   }}
                 >
-                  4-Character Room Code
+                  Room Code
                 </label>
                 <input
                   id="join-code-input"
@@ -200,14 +145,14 @@ export const LandingView: React.FC<LandingViewProps> = ({
                     marginBottom: '0.35rem',
                   }}
                 >
-                  Your Name (Optional — or get a fun animal alias)
+                  Your Name (Optional)
                 </label>
                 <input
                   id="join-name-input"
                   type="text"
                   value={joinName}
                   onChange={(e) => setJoinName(e.target.value)}
-                  placeholder="Leave blank for e.g. Curious Capybara"
+                  placeholder="e.g. Curious Capybara"
                   maxLength={24}
                   style={{
                     width: '100%',
@@ -236,10 +181,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
               </button>
             </form>
           </div>
-
-          <div style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-            Zero login or app install needed. Works instantly in any mobile browser.
-          </div>
         </div>
 
         {/* Path 2: Facilitate a Session */}
@@ -262,7 +203,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {/* Primary 1-Click Button */}
+              {/* Preset 1: 8-Card Spark */}
               <button
                 id="start-spark-btn"
                 onClick={() => onStartHost('spark-8')}
@@ -307,173 +248,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 </div>
                 <span style={{ color: 'var(--ink-muted)' }}>→</span>
               </button>
-
-              {/* Custom Domain Filter Toggle */}
-              <div>
-                <button
-                  id="toggle-custom-deck-btn"
-                  onClick={() => setShowCustomDeck(!showCustomDeck)}
-                  className="btn-ghost"
-                  style={{ fontSize: '0.84rem', padding: '0.4rem 0.2rem' }}
-                >
-                  {showCustomDeck ? '− Hide custom domain filter' : '+ Customize domain categories'}
-                </button>
-
-                {showCustomDeck && (
-                  <div
-                    style={{
-                      marginTop: '0.5rem',
-                      padding: '0.85rem',
-                      backgroundColor: 'var(--bg-tray)',
-                      borderRadius: 'var(--radius-md)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.75rem',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-secondary)' }}>
-                      Select Domains to Include:
-                    </span>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-                      {CATEGORY_LIST.map((c) => {
-                        const checked = selectedCategories.includes(c.id);
-                        return (
-                          <label
-                            key={c.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.4rem',
-                              fontSize: '0.82rem',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleCategory(c.id)}
-                            />
-                            <span>{c.shortLabel}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <button
-                      id="start-custom-btn"
-                      onClick={() => onStartHost('custom', selectedCategories)}
-                      className="btn-primary"
-                      style={{ padding: '0.6rem 0.85rem', fontSize: '0.85rem' }}
-                    >
-                      Start Custom Deck ({selectedCategories.length} domains)
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '0.85rem' }}>
-            <button
-              id="open-currents-guide-btn"
-              onClick={() => setShowCurrentsGuide(!showCurrentsGuide)}
-              className="btn-ghost"
-              style={{ width: '100%', justifyContent: 'center', fontSize: '0.86rem', color: 'var(--currents-teal)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-            >
-              <WaveIcon size={16} />
-              <span>{showCurrentsGuide ? 'Hide Four Currents Guide' : 'Explore The Four Currents Framework'}</span>
-            </button>
           </div>
         </div>
       </section>
 
-      {/* Expandable Four Currents Guide */}
-      {showCurrentsGuide && (
-        <section
-          className="card-tabletop"
-          style={{
-            borderLeft: '4px solid var(--currents-teal)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-          }}
-        >
-          <div>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                color: 'var(--currents-teal)',
-                textTransform: 'uppercase',
-              }}
-            >
-              The Conceptual Anchor
-            </span>
-            <h2 style={{ fontSize: '1.6rem', marginTop: '0.2rem', marginBottom: '0.35rem' }}>
-              The Four Currents by The Rithm Project
-            </h2>
-            <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)' }}>
-              Like rip currents in the ocean, these four dynamics quietly pull on human connection as AI adoption
-              accelerates. Visit{' '}
-              <a href="https://aicurrents.therithmproject.org/" target="_blank" rel="noreferrer">
-                aicurrents.therithmproject.org
-              </a>{' '}
-              for the complete research framework.
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '1rem',
-            }}
-          >
-            {RITHM_CURRENTS_LIST.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  backgroundColor: 'var(--bg-tray)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.74rem',
-                    fontWeight: 700,
-                    color: 'var(--currents-teal)',
-                  }}
-                >
-                  {c.number}
-                </span>
-                <h4 style={{ fontSize: '1.05rem', margin: 0 }}>{c.title}</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--ink-secondary)', fontStyle: 'italic', margin: 0 }}>
-                  "{c.subtitle}"
-                </p>
-                <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
-                  <a
-                    href={c.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
-                  >
-                    <span>Read Research</span>
-                    <ExternalLinkIcon size={11} />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Always-visible Rithm Project Attribution Footer */}
+      {/* Attribution Footer */}
       <footer
         style={{
           marginTop: '0.5rem',
@@ -527,7 +307,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
             therithmproject.org/the-ai-effect
           </a>{' '}
           •{' '}
-          <a href="https://aicurrents.therithmproject.org/current-04/" target="_blank" rel="noreferrer">
+          <a href="https://aicurrents.therithmproject.org/" target="_blank" rel="noreferrer">
             aicurrents.therithmproject.org
           </a>
         </div>
@@ -535,4 +315,3 @@ export const LandingView: React.FC<LandingViewProps> = ({
     </div>
   );
 };
-

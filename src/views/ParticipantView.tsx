@@ -4,8 +4,20 @@ import { getCurrentMeta } from '../content/currents';
 import { CATEGORY_META, STANCE_LIST, STANCE_META } from '../content/scenarios';
 import { computeStanceTally, generateAlliterativeAnimalName } from '../state/roomEngine';
 import { ClientRoomChannel } from '../utils/roomSync';
-import { RithmCurrentId, RoomState, Stance } from '../types/game';
-import { CheckIcon, ExternalLinkIcon, PencilIcon, SparkIcon } from '../components/Icons';
+import {
+  RithmCurrentId,
+  RoomState,
+  Stance,
+  WorkshopProposal,
+  WorkshopProposalType,
+} from '../types/game';
+import {
+  CheckIcon,
+  ExternalLinkIcon,
+  PencilIcon,
+  SparkIcon,
+  WaveIcon,
+} from '../components/Icons';
 
 export interface ParticipantViewProps {
   room: RoomState | null;
@@ -14,6 +26,13 @@ export interface ParticipantViewProps {
   initialName?: string;
   onExit?: () => void;
 }
+
+const WORKSHOP_CURRENTS: Array<{ id: RithmCurrentId; tabLabel: string; title: string }> = [
+  { id: 'current-01', tabLabel: '01 Trust', title: 'Our sense of trust' },
+  { id: 'current-02', tabLabel: '02 AI Relationships', title: 'Relationships with AI' },
+  { id: 'current-03', tabLabel: '03 Inner Voice', title: 'Our inner voice' },
+  { id: 'current-04', tabLabel: '04 Acting for Us', title: 'Acting for us' },
+];
 
 export const ParticipantView: React.FC<ParticipantViewProps> = ({
   room,
@@ -34,19 +53,19 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [isNoteSaved, setIsNoteSaved] = useState(false);
 
-  // Sync initial name or participant name if present in room
-  useEffect(() => {
-    if (room && room.participants[clientId]?.name) {
-      setUserName(room.participants[clientId].name);
-      setIsEditingName(false);
-    }
-  }, [room, clientId]);
+  // Workshop Form State
+  const [selectedWorkshopCurrent, setSelectedWorkshopCurrent] =
+    useState<RithmCurrentId>('current-01');
+  const [workshopProposalType, setWorkshopProposalType] =
+    useState<WorkshopProposalType>('protect');
+  const [workshopProposalText, setWorkshopProposalText] = useState('');
+  const [proposalAddedToast, setProposalAddedToast] = useState(false);
 
   const participant = room?.participants[clientId];
   const pebbleVariant = participant?.pebbleVariant ?? 0;
-  const currentScenario =
-    room && room.scenarios[room.currentScenarioIndex] ? room.scenarios[room.currentScenarioIndex] : null;
-  const currentRound = currentScenario && room ? room.rounds[currentScenario.id] : undefined;
+
+  const currentScenario = room ? room.scenarios[room.currentScenarioIndex] : null;
+  const currentRound = currentScenario && room ? room.rounds[currentScenario.id] : null;
   const myVote = currentRound?.votes[clientId];
   const activeStance = myVote?.currentStance;
 
@@ -122,6 +141,16 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
     }
   };
 
+  const handleProposalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanText = workshopProposalText.trim().slice(0, 140);
+    if (!cleanText) return;
+    channel.sendProposal(selectedWorkshopCurrent, workshopProposalType, cleanText);
+    setWorkshopProposalText('');
+    setProposalAddedToast(true);
+    setTimeout(() => setProposalAddedToast(false), 2200);
+  };
+
   if (!room) {
     return (
       <div
@@ -154,6 +183,18 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
   const tally = currentRound ? computeStanceTally(currentRound.votes, false) : null;
   const currentMeta = currentScenario ? getCurrentMeta(currentScenario.currentId) : null;
   const categoryMeta = currentScenario ? CATEGORY_META[currentScenario.category] : null;
+
+  // Workshop-specific calculations
+  const playedScenariosForCurrent = room.scenarios.filter(
+    (s) => s.currentId === selectedWorkshopCurrent
+  );
+  const currentProposals: WorkshopProposal[] = Object.values(
+    room.workshopProposals || {}
+  )
+    .filter((p) => p.currentId === selectedWorkshopCurrent)
+    .sort((a, b) => (b.endorsements?.length || 0) - (a.endorsements?.length || 0) || b.createdAt - a.createdAt);
+
+  const selectedCurrentMeta = getCurrentMeta(selectedWorkshopCurrent);
 
   return (
     <div
@@ -227,6 +268,10 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.3rem',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
               }}
               title="Click to change your name"
             >
@@ -253,22 +298,18 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
           {onExit && (
             <button
               onClick={onExit}
-              style={{
-                fontSize: '0.8rem',
-                color: 'var(--ink-muted)',
-                padding: '0.2rem 0.4rem',
-              }}
-              title="Exit room"
+              className="btn-ghost"
+              style={{ fontSize: '0.8rem', padding: '0.2rem 0.4rem', color: 'var(--ink-muted)' }}
             >
-              ✕
+              Exit
             </button>
           )}
         </div>
       </header>
 
-      {/* 2. State-specific views */}
+      {/* 2. Main content area depending on phase */}
       {phase === 'lobby' ? (
-        /* Lobby State */
+        /* Lobby State: Waiting for Facilitator */
         <div
           className="card-tabletop"
           style={{
@@ -278,108 +319,349 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
             textAlign: 'center',
             padding: '2.5rem 1.5rem',
             gap: '1.25rem',
-            margin: 'auto 0',
           }}
         >
           <Pebble
             variant={pebbleVariant}
             stance="neutral"
             size="lg"
-            className="animate-pebble-drop"
+            className="animate-pulse"
+            label={userName.slice(0, 2).toUpperCase()}
           />
           <div>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-              You're at the table!
-            </h2>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '0.35rem' }}>You're at the Table</h2>
             <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)', lineHeight: 1.45 }}>
-              Welcome, <strong>{userName || 'friend'}</strong>. Waiting for the facilitator to draw the first card on the main screen.
+              Welcome, <strong>{userName}</strong>! The facilitator will begin the first scenario shortly.
             </p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: 'var(--bg-tray)',
-              borderRadius: 'var(--radius-md)',
-              padding: '0.85rem 1rem',
-              fontSize: '0.82rem',
-              color: 'var(--ink-secondary)',
-              border: '1px solid var(--border-subtle)',
-              width: '100%',
-            }}
-          >
-            Keep your phone awake. As cards are revealed, you will cast your vote and explore how AI touches human connection.
           </div>
         </div>
       ) : phase === 'currents_workshop' ? (
-        /* Workshop State */
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-          }}
-        >
-          <div className="card-tabletop" style={{ borderLeft: '4px solid var(--currents-teal)' }}>
-            <span
+        /* =================================================================
+           INTERACTIVE CURRENTS WORKSHOP ON MOBILE
+           ================================================================= */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Workshop Header & Current Selector Tabs */}
+          <div className="card-tabletop" style={{ padding: '1rem', borderLeft: '4px solid var(--currents-teal)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                <WaveIcon size={14} />
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    color: 'var(--currents-teal)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  The Four Currents Workshop
+                </span>
+              </div>
+              <h3 style={{ fontSize: '1.2rem', margin: 0 }}>
+                {selectedCurrentMeta.title}
+              </h3>
+            </div>
+
+            {/* Current Selector 4 Tabs */}
+            <div
               style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                color: 'var(--currents-teal)',
-                textTransform: 'uppercase',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '0.4rem',
               }}
             >
-              Offsite Debrief
-            </span>
-            <h2 style={{ fontSize: '1.35rem', marginTop: '0.25rem', marginBottom: '0.4rem' }}>
-              Navigating The Four Currents
-            </h2>
-            <p style={{ fontSize: '0.88rem', color: 'var(--ink-secondary)', lineHeight: 1.4 }}>
-              Follow along on the main screen as the team synthesizes our boundaries and captures shared commitments.
-            </p>
+              {WORKSHOP_CURRENTS.map((c) => {
+                const isSelected = selectedWorkshopCurrent === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedWorkshopCurrent(c.id)}
+                    className={isSelected ? 'btn-primary' : 'btn-secondary'}
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '0.45rem 0.5rem',
+                      textAlign: 'center',
+                      justifyContent: 'center',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {c.tabLabel}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* 4 Currents Cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            {(['current-01', 'current-02', 'current-03', 'current-04'] as RithmCurrentId[]).map((cid) => {
-              const meta = getCurrentMeta(cid);
-              const commitment = room.currentCommitments[cid];
+          {/* Part 1 Room Flashback: Scenarios played for this Current */}
+          {playedScenariosForCurrent.length > 0 && (
+            <div
+              className="card-tabletop"
+              style={{
+                padding: '0.85rem 1rem',
+                backgroundColor: 'var(--bg-tray)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: 'var(--ink-muted)',
+                }}
+              >
+                Part 1 Flashback for {selectedCurrentMeta.number}
+              </span>
 
-              return (
-                <div
-                  key={cid}
-                  className="card-tabletop"
-                  style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--currents-teal)' }}>
-                      {meta.number}
-                    </span>
-                    <a href={meta.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      Guide <ExternalLinkIcon size={11} />
-                    </a>
-                  </div>
-                  <h4 style={{ fontSize: '1.05rem', margin: 0 }}>{meta.title}</h4>
-                  <p style={{ fontSize: '0.82rem', fontStyle: 'italic', margin: 0 }}>
-                    "{meta.subtitle}"
-                  </p>
-                  {commitment && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                {playedScenariosForCurrent.map((s) => {
+                  const round = room.rounds[s.id];
+                  const roundTally = round ? computeStanceTally(round.votes, false) : null;
+                  const notes = round
+                    ? Object.values(round.votes)
+                        .map((v) => v.note?.trim())
+                        .filter(Boolean)
+                    : [];
+
+                  return (
                     <div
+                      key={s.id}
                       style={{
-                        backgroundColor: 'var(--currents-teal-tint)',
+                        backgroundColor: '#FFFDF9',
                         borderRadius: 'var(--radius-sm)',
-                        padding: '0.5rem 0.75rem',
-                        fontSize: '0.82rem',
-                        borderLeft: '3px solid var(--currents-teal)',
-                        marginTop: '0.3rem',
+                        padding: '0.5rem 0.65rem',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.25rem',
                       }}
                     >
-                      <strong>Team Norm:</strong> "{commitment}"
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{s.title}</span>
+                        {roundTally && (
+                          <span style={{ fontSize: '0.74rem', fontFamily: 'var(--font-mono)', color: 'var(--ink-secondary)' }}>
+                            {roundTally.support}S / {roundTally.depends}D / {roundTally.erode}E
+                          </span>
+                        )}
+                      </div>
+
+                      {notes.length > 0 && (
+                        <div style={{ fontSize: '0.74rem', color: 'var(--ink-secondary)', fontStyle: 'italic' }}>
+                          "{notes[0]}"
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Submit Table Proposal Form */}
+          <div
+            className="card-tabletop"
+            style={{
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: 'var(--currents-teal)',
+                }}
+              >
+                Submit a Proposal
+              </span>
+              {proposalAddedToast && (
+                <span
+                  style={{
+                    fontSize: '0.74rem',
+                    color: 'var(--stance-support-text)',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                  }}
+                >
+                  <CheckIcon size={12} />
+                  <span>Added to Board!</span>
+                </span>
+              )}
+            </div>
+
+            {/* 2-Way Proposal Type Toggle */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '0.4rem',
+                backgroundColor: 'var(--bg-tray)',
+                padding: '0.25rem',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setWorkshopProposalType('protect')}
+                className={workshopProposalType === 'protect' ? 'btn-primary' : 'btn-ghost'}
+                style={{
+                  fontSize: '0.78rem',
+                  padding: '0.4rem 0.5rem',
+                  justifyContent: 'center',
+                  backgroundColor: workshopProposalType === 'protect' ? 'var(--stance-support)' : 'transparent',
+                  color: workshopProposalType === 'protect' ? '#FFFDF9' : 'var(--ink-secondary)',
+                }}
+              >
+                Protect &amp; Build
+              </button>
+              <button
+                type="button"
+                onClick={() => setWorkshopProposalType('automate')}
+                className={workshopProposalType === 'automate' ? 'btn-primary' : 'btn-ghost'}
+                style={{
+                  fontSize: '0.78rem',
+                  padding: '0.4rem 0.5rem',
+                  justifyContent: 'center',
+                  backgroundColor: workshopProposalType === 'automate' ? 'var(--currents-teal)' : 'transparent',
+                  color: workshopProposalType === 'automate' ? '#FFFDF9' : 'var(--ink-secondary)',
+                }}
+              >
+                Automate for Time
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.76rem', color: 'var(--ink-secondary)', margin: 0, fontStyle: 'italic' }}>
+              {workshopProposalType === 'protect'
+                ? 'Human ritual or boundary we fiercely protect against AI erosion.'
+                : 'Routine task or grind we gladly delegate to AI to unlock human connection.'}
+            </p>
+
+            <form onSubmit={handleProposalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <input
+                id="workshop-proposal-input"
+                type="text"
+                value={workshopProposalText}
+                onChange={(e) => setWorkshopProposalText(e.target.value)}
+                maxLength={140}
+                placeholder={
+                  workshopProposalType === 'protect'
+                    ? 'e.g. Always conduct grantee discovery visits in-person'
+                    : 'e.g. Automate 990 tax filing data extraction'
+                }
+                required
+                style={{
+                  width: '100%',
+                  padding: '0.65rem 0.8rem',
+                  fontSize: '0.88rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-default)',
+                  backgroundColor: '#FFFDF9',
+                }}
+              />
+
+              <button
+                id="submit-proposal-btn"
+                type="submit"
+                className="btn-primary"
+                style={{
+                  padding: '0.65rem',
+                  fontSize: '0.88rem',
+                  backgroundColor:
+                    workshopProposalType === 'protect'
+                      ? 'var(--stance-support)'
+                      : 'var(--currents-teal)',
+                }}
+              >
+                Add to Board →
+              </button>
+            </form>
+          </div>
+
+          {/* Live Cards for This Current */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            <span
+              style={{
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: 'var(--ink-muted)',
+              }}
+            >
+              Proposals on the Board ({currentProposals.length})
+            </span>
+
+            {currentProposals.length === 0 ? (
+              <div
+                style={{
+                  padding: '1.25rem',
+                  textAlign: 'center',
+                  backgroundColor: 'var(--bg-card)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px dashed var(--border-default)',
+                  color: 'var(--ink-muted)',
+                  fontSize: '0.82rem',
+                  fontStyle: 'italic',
+                }}
+              >
+                No proposals added for {selectedCurrentMeta.number} yet. Be the first to add one above!
+              </div>
+            ) : (
+              currentProposals.map((p) => {
+                const hasEndorsed = (p.endorsements || []).includes(clientId);
+                const isProtect = p.type === 'protect';
+
+                return (
+                  <div key={p.id} className="workshop-proposal-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className={`badge-proposal ${isProtect ? 'protect' : 'automate'}`}>
+                        {isProtect ? 'Protect & Build' : 'Automate for Time'}
+                      </span>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--ink-muted)', fontStyle: 'italic' }}>
+                        {p.authorName}
+                      </span>
+                    </div>
+
+                    <p style={{ fontSize: '0.9rem', color: 'var(--ink-primary)', margin: 0, fontWeight: 500, lineHeight: 1.4 }}>
+                      "{p.text}"
+                    </p>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
+                      <button
+                        id={`endorse-proposal-${p.id}`}
+                        onClick={() => channel.sendToggleEndorsement(p.id)}
+                        className="btn-secondary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.3rem 0.75rem',
+                          fontSize: '0.78rem',
+                          borderRadius: 'var(--radius-full)',
+                          backgroundColor: hasEndorsed ? 'var(--stance-support-tint)' : 'var(--bg-tray)',
+                          borderColor: hasEndorsed ? 'var(--stance-support-border)' : 'var(--border-default)',
+                          color: hasEndorsed ? 'var(--stance-support-text)' : 'var(--ink-primary)',
+                        }}
+                      >
+                        <Pebble variant={1} stance={hasEndorsed ? 'support' : 'neutral'} size="sm" />
+                        <span>{p.endorsements?.length || 0}</span>
+                        <span style={{ fontWeight: 600 }}>{hasEndorsed ? 'Endorsed' : 'Endorse'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       ) : (
@@ -423,6 +705,10 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                     alignItems: 'center',
                     gap: '0.3rem',
                     fontWeight: 600,
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
                   }}
                 >
                   <span>{showFullScenario ? 'Hide full scenario' : 'Read full scenario'}</span>
@@ -454,14 +740,11 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
             <div className="twist-banner animate-pebble-drop">
               <div className="twist-banner-title">
                 <SparkIcon size={16} />
-                <span>Context Shift ("What If?")</span>
+                <span>What if?</span>
               </div>
-              <div className="twist-banner-body" style={{ fontSize: '1rem', marginBottom: '0.4rem' }}>
+              <div className="twist-banner-body" style={{ fontSize: '1rem', marginBottom: '0.2rem' }}>
                 {currentScenario.twist}
               </div>
-              <p style={{ fontSize: '0.84rem', color: 'var(--stance-depends-text)', fontWeight: 600, margin: 0 }}>
-                Does your stance hold, or does it shift? Tap a card below to update your vote!
-              </p>
             </div>
           )}
 
@@ -526,9 +809,13 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.35rem',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '0.2rem',
                 }}
               >
-                <span>+ Add a 1-line thought for the room (optional)</span>
+                <span>+ Add a thought</span>
               </button>
             ) : isEditingNote || !isNoteSaved ? (
               <form
@@ -548,100 +835,87 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                     htmlFor="vote-note-input"
                     style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--ink-secondary)' }}
                   >
-                    1-Line Thought for the Room:
+                    Your 1-line thought for the room
                   </label>
                   <button
                     type="button"
                     onClick={() => {
-                      const saved = myVote?.note?.trim() || '';
-                      if (saved) {
-                        setNoteText(saved);
-                        setIsNoteSaved(true);
-                        setIsEditingNote(false);
-                      } else {
-                        setIsEditingNote(false);
-                        setShowNoteField(false);
-                      }
+                      if (!isNoteSaved) setShowNoteField(false);
+                      setIsEditingNote(false);
                     }}
-                    style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--ink-muted)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
                   >
                     Cancel
                   </button>
                 </div>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <input
-                    id="vote-note-input"
-                    type="text"
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    placeholder="Why this stance? (optional)"
-                    autoFocus
-                    maxLength={140}
-                    style={{
-                      flex: 1,
-                      padding: '0.5rem 0.65rem',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-default)',
-                      backgroundColor: '#FFFDF9',
-                      fontSize: '0.85rem',
-                    }}
-                  />
+
+                <input
+                  id="vote-note-input"
+                  type="text"
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  maxLength={100}
+                  placeholder="e.g. Needs a trusted human chaperone in the loop"
+                  style={{
+                    padding: '0.5rem 0.65rem',
+                    fontSize: '0.85rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                  }}
+                  autoFocus
+                />
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>
+                    {100 - noteText.length} left
+                  </span>
                   <button
                     id="save-vote-note-btn"
                     type="submit"
                     className="btn-primary"
-                    style={{ padding: '0.5rem 0.85rem', fontSize: '0.82rem' }}
+                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
                   >
-                    Share
+                    Attach Note
                   </button>
                 </div>
               </form>
             ) : (
               <div
-                id="saved-vote-note-card"
                 style={{
+                  backgroundColor: 'var(--bg-tray)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '0.6rem 0.75rem',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.35rem',
-                  backgroundColor: 'var(--bg-tray)',
-                  padding: '0.7rem 0.85rem',
-                  borderRadius: 'var(--radius-md)',
+                  gap: '0.25rem',
                   border: '1px solid var(--border-subtle)',
-                  borderLeft: '3px solid var(--stance-support-accent)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                  <span
-                    style={{
-                      fontSize: '0.74rem',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.03em',
-                      color: activeStance ? 'var(--stance-support-text)' : 'var(--stance-depends-text)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.3rem',
-                    }}
-                  >
-                    <CheckIcon size={12} />
-                    <span>{activeStance ? 'Shared with the room' : 'Saved — tap a stance above to send'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-muted)' }}>
+                    Your Attached Thought
                   </span>
                   <button
                     id="edit-vote-note-btn"
-                    type="button"
                     onClick={() => setIsEditingNote(true)}
                     style={{
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
+                      fontSize: '0.75rem',
                       color: 'var(--ink-secondary)',
-                      display: 'inline-flex',
+                      display: 'flex',
                       alignItems: 'center',
                       gap: '0.3rem',
                       padding: '0.15rem 0.5rem',
                       borderRadius: 'var(--radius-sm)',
                       backgroundColor: 'var(--bg-card)',
                       border: '1px solid var(--border-subtle)',
+                      cursor: 'pointer',
                     }}
                     title="Edit your 1-line thought"
                   >
@@ -664,14 +938,14 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
             )}
           </div>
 
-          {/* Revealed Room Insights & The Current (when revealed or twist) */}
+          {/* Revealed Room Insights & Compact Current Title Chip */}
           {isRevealed && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}>
               {/* Room Bar */}
               {tally && tally.total > 0 && (
-                <div className="card-tabletop" style={{ padding: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-muted)' }}>
+                <div className="card-tabletop" style={{ padding: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-muted)' }}>
                       Room Responses ({tally.total})
                     </span>
                   </div>
@@ -695,30 +969,34 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                 </div>
               )}
 
-              {/* Rithm Current Insight Card */}
+              {/* Compact 1-line Current Title Chip */}
               {currentMeta && (
                 <div
-                  className="card-tabletop"
+                  className="badge-current"
                   style={{
-                    padding: '1rem',
-                    borderLeft: '4px solid var(--currents-teal)',
-                    backgroundColor: 'var(--currents-teal-tint)',
+                    padding: '0.45rem 0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    borderRadius: 'var(--radius-md)',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--currents-teal)' }}>
-                      {currentMeta.number}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <WaveIcon size={14} />
+                    <span style={{ fontWeight: 600, fontSize: '0.82rem' }}>
+                      {currentMeta.number}: {currentMeta.title}
                     </span>
-                    <a href={currentMeta.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      Learn More <ExternalLinkIcon size={11} />
-                    </a>
                   </div>
-                  <h4 style={{ fontSize: '1.05rem', margin: 0, marginBottom: '0.25rem' }}>
-                    {currentMeta.title}
-                  </h4>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', margin: 0, lineHeight: 1.4 }}>
-                    {currentMeta.pullDescription}
-                  </p>
+                  <a
+                    href={currentMeta.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: '0.74rem', color: 'var(--currents-teal)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
+                  >
+                    <span>Guide</span>
+                    <ExternalLinkIcon size={10} />
+                  </a>
                 </div>
               )}
             </div>
