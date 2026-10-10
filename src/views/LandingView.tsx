@@ -5,7 +5,11 @@ import { PhoneIcon, ScreenIcon } from '../components/Icons';
 
 export interface LandingViewProps {
   onJoinRoom: (code: string, name?: string) => void;
-  onStartHost: (preset: DeckPresetId, selectedCategories?: ScenarioCategory[]) => void;
+  onStartHost: (
+    preset: DeckPresetId,
+    selectedCategories?: ScenarioCategory[],
+    customCode?: string
+  ) => void;
   initialCode?: string;
 }
 
@@ -16,13 +20,19 @@ export const LandingView: React.FC<LandingViewProps> = ({
 }) => {
   const [joinCode, setJoinCode] = useState(initialCode.toUpperCase());
   const [joinName, setJoinName] = useState('');
+  const [hostCustomCode, setHostCustomCode] = useState('');
 
   const handleJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanCode = joinCode.trim().toUpperCase();
-    if (cleanCode.length >= 3) {
+    const cleanCode = joinCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    if (cleanCode.length >= 2) {
       onJoinRoom(cleanCode, joinName.trim() || undefined);
     }
+  };
+
+  const launchHostWithPreset = (preset: DeckPresetId) => {
+    const cleanCustom = hostCustomCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    onStartHost(preset, undefined, cleanCustom || undefined);
   };
 
   return (
@@ -115,9 +125,11 @@ export const LandingView: React.FC<LandingViewProps> = ({
                   id="join-code-input"
                   type="text"
                   value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+                  onChange={(e) =>
+                    setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12))
+                  }
                   placeholder="e.g. WARM"
-                  maxLength={6}
+                  maxLength={12}
                   required
                   style={{
                     width: '100%',
@@ -202,15 +214,58 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <ScreenIcon size={20} style={{ color: 'var(--currents-teal)' }} />
               <h2 style={{ fontSize: '1.45rem' }}>Facilitate a Session</h2>
             </div>
-            <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)', marginBottom: '1.25rem' }}>
+            <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)', marginBottom: '1rem' }}>
               Project or screenshare the slides and scenarios.
             </p>
+
+            {/* Optional Custom Room Code for pre-made shortlinks */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label
+                htmlFor="host-custom-code-input"
+                style={{
+                  display: 'block',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--ink-muted)',
+                  marginBottom: '0.3rem',
+                }}
+              >
+                Custom Room Code (Optional)
+              </label>
+              <input
+                id="host-custom-code-input"
+                type="text"
+                value={hostCustomCode}
+                onChange={(e) =>
+                  setHostCustomCode(
+                    e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12)
+                  )
+                }
+                placeholder="Auto-generated if blank (e.g. OFFSITE)"
+                maxLength={12}
+                style={{
+                  width: '100%',
+                  padding: '0.55rem 0.8rem',
+                  fontSize: '0.92rem',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-default)',
+                  backgroundColor: '#FFFDF9',
+                  color: 'var(--ink-primary)',
+                }}
+              />
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               {/* Option 1: Short Spark Session */}
               <button
                 id="start-spark-btn"
-                onClick={() => onStartHost('spark-8')}
+                onClick={() => launchHostWithPreset('spark-8')}
                 className="btn-primary"
                 style={{
                   padding: '0.95rem 1.25rem',
@@ -248,7 +303,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 >
                   <button
                     id="start-current01-btn"
-                    onClick={() => onStartHost('current-01-focus')}
+                    onClick={() => launchHostWithPreset('current-01-focus')}
                     className="btn-secondary"
                     style={{
                       display: 'flex',
@@ -272,7 +327,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
                   <button
                     id="start-current02-btn"
-                    onClick={() => onStartHost('current-02-focus')}
+                    onClick={() => launchHostWithPreset('current-02-focus')}
                     className="btn-secondary"
                     style={{
                       display: 'flex',
@@ -296,7 +351,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
                   <button
                     id="start-current03-btn"
-                    onClick={() => onStartHost('current-03-focus')}
+                    onClick={() => launchHostWithPreset('current-03-focus')}
                     className="btn-secondary"
                     style={{
                       display: 'flex',
@@ -320,7 +375,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
                   <button
                     id="start-current04-btn"
-                    onClick={() => onStartHost('current-04-focus')}
+                    onClick={() => launchHostWithPreset('current-04-focus')}
                     className="btn-secondary"
                     style={{
                       display: 'flex',
@@ -347,7 +402,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               {/* Option 3: Full 20-Card Deck */}
               <button
                 id="start-full-btn"
-                onClick={() => onStartHost('full-20')}
+                onClick={() => launchHostWithPreset('full-20')}
                 className="btn-secondary"
                 style={{ justifyContent: 'space-between', textAlign: 'left', padding: '0.8rem 1rem' }}
               >
