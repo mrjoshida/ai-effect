@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pebble } from '../components/Pebble';
 import { getCurrentMeta } from '../content/currents';
 import { CATEGORY_META, STANCE_LIST, STANCE_META } from '../content/scenarios';
-import { computeStanceTally } from '../state/roomEngine';
+import { computeStanceTally, generateAlliterativeAnimalName } from '../state/roomEngine';
 import { ClientRoomChannel } from '../utils/roomSync';
 import { RithmCurrentId, RoomState, Stance } from '../types/game';
 
@@ -21,8 +21,12 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
   initialName = '',
   onExit,
 }) => {
-  const [userName, setUserName] = useState(initialName);
-  const [isEditingName, setIsEditingName] = useState(!initialName);
+  const [userName, setUserName] = useState(
+    initialName ||
+      room?.participants[clientId]?.name ||
+      generateAlliterativeAnimalName(clientId)
+  );
+  const [isEditingName, setIsEditingName] = useState(false);
   const [showFullScenario, setShowFullScenario] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [showNoteField, setShowNoteField] = useState(false);
@@ -60,7 +64,10 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
 
   const handleSaveName = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const cleanName = userName.trim() || 'Guest';
+    const cleanName =
+      userName.trim() ||
+      room?.participants[clientId]?.name ||
+      generateAlliterativeAnimalName(clientId);
     setUserName(cleanName);
     setIsEditingName(false);
     channel.sendJoin(cleanName);
@@ -184,7 +191,7 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
               }}
               title="Click to change your name"
             >
-              <span>{userName || 'Guest'}</span>
+              <span>{userName}</span>
               <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>✎</span>
             </button>
           )}

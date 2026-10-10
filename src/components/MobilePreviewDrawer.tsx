@@ -34,8 +34,8 @@ export const MobilePreviewDrawer: React.FC<MobilePreviewDrawerProps> = ({
     );
 
     setChannel(ch);
-    // Send immediate join for preview voter
-    ch.sendJoin('Demo Voter');
+    // Send immediate join for preview voter (gets an auto-assigned alliterative animal name)
+    ch.sendJoin();
 
     return () => {
       ch.destroy();
@@ -135,7 +135,6 @@ export const MobilePreviewDrawer: React.FC<MobilePreviewDrawerProps> = ({
               room={syncedRoom}
               channel={channel}
               clientId={previewClientId}
-              initialName="Demo Voter"
             />
           )}
         </div>
