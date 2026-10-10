@@ -18,6 +18,76 @@ import {
 
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+export const ALLITERATIVE_ANIMAL_NAMES: readonly string[] = [
+  'Ambling Alpaca',
+  'Breezy Badger',
+  'Clever Crane',
+  'Curious Capybara',
+  'Dapper Dolphin',
+  'Earnest Egret',
+  'Friendly Fox',
+  'Gentle Gecko',
+  'Happy Hedgehog',
+  'Inventive Ibis',
+  'Jolly Jackrabbit',
+  'Kindly Koala',
+  'Lively Lynx',
+  'Mellow Marmot',
+  'Merry Manatee',
+  'Nimble Narwhal',
+  'Optimistic Otter',
+  'Patient Pangolin',
+  'Plucky Puffin',
+  'Quirky Quokka',
+  'Radiant Robin',
+  'Spirited Starling',
+  'Sunny Salamander',
+  'Thoughtful Tortoise',
+  'Tranquil Trout',
+  'Upbeat Urchin',
+  'Vibrant Vole',
+  'Wandering Wren',
+  'Warm Walrus',
+  'Whimsical Whale',
+  'Wise Wombat',
+  'Zesty Zebra',
+];
+
+export function generateAlliterativeAnimalName(
+  seed?: string | number,
+  existingNames: string[] = []
+): string {
+  const total = ALLITERATIVE_ANIMAL_NAMES.length;
+  let baseIndex = 0;
+
+  if (typeof seed === 'number') {
+    baseIndex = Math.abs(Math.floor(seed)) % total;
+  } else if (typeof seed === 'string' && seed.length > 0) {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = (hash << 5) - hash + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    baseIndex = Math.abs(hash) % total;
+  } else {
+    baseIndex = Math.floor(Math.random() * total);
+  }
+
+  const existingLower = new Set(
+    existingNames.map((n) => n.trim().toLowerCase())
+  );
+
+  for (let offset = 0; offset < total; offset++) {
+    const candidate = ALLITERATIVE_ANIMAL_NAMES[(baseIndex + offset) % total];
+    if (!existingLower.has(candidate.toLowerCase())) {
+      return candidate;
+    }
+  }
+
+  const fallback = ALLITERATIVE_ANIMAL_NAMES[baseIndex];
+  return `${fallback} ${existingNames.length + 1}`;
+}
+
 const inMemoryStorage = new Map<string, string>();
 
 interface StorageLike {
@@ -166,9 +236,13 @@ export function joinParticipant(
   }
 
   const existingCount = Object.keys(room.participants).length;
+  const existingNames = Object.values(room.participants).map((p) => p.name);
+  const assignedName =
+    name?.trim() || generateAlliterativeAnimalName(clientId, existingNames);
+
   const newParticipant: Participant = {
     clientId,
-    name: name?.trim() || `Guest ${existingCount + 1}`,
+    name: assignedName,
     pebbleVariant: existingCount % 5,
     joinedAt: now,
     lastSeenAt: now,

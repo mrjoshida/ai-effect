@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PHILANTHROPY_SCENARIOS } from '../src/content/scenarios';
 import {
+  ALLITERATIVE_ANIMAL_NAMES,
   ROOM_CODE_ALPHABET,
   addCustomScenario,
   applyInboundMessage,
@@ -10,6 +11,7 @@ import {
   computeTwistShiftDelta,
   createRoomState,
   formatWorkshopMarkdown,
+  generateAlliterativeAnimalName,
   generateRoomCode,
   getOrCreateClientId,
   joinParticipant,
@@ -81,7 +83,7 @@ describe('Room Engine State Machine & Analytics', () => {
   });
 
   describe('Participant Management', () => {
-    it('joins new participants with pebbleVariant cycling 0..4', () => {
+    it('joins new participants with pebbleVariant cycling 0..4 and assigns alliterative animal name when unnamed', () => {
       let room = createRoomState();
       room = joinParticipant(room, 'client-1', 'Alice');
       room = joinParticipant(room, 'client-2', 'Bob');
@@ -91,8 +93,36 @@ describe('Room Engine State Machine & Analytics', () => {
       expect(room.participants['client-1'].pebbleVariant).toBe(0);
       expect(room.participants['client-2'].name).toBe('Bob');
       expect(room.participants['client-2'].pebbleVariant).toBe(1);
-      expect(room.participants['client-3'].name).toBe('Guest 3');
+
+      const p3Name = room.participants['client-3'].name;
+      expect(p3Name).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+      expect(ALLITERATIVE_ANIMAL_NAMES).toContain(p3Name);
       expect(room.participants['client-3'].pebbleVariant).toBe(2);
+    });
+
+    it('assigns distinct alliterative animal names to multiple unnamed participants in the same room', () => {
+      let room = createRoomState();
+      for (let i = 0; i < 10; i++) {
+        room = joinParticipant(room, `guest-${i}`);
+      }
+
+      const names = Object.values(room.participants).map((p) => p.name);
+      const uniqueNames = new Set(names);
+      expect(uniqueNames.size).toBe(10);
+      for (const name of names) {
+        expect(name).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+        expect(ALLITERATIVE_ANIMAL_NAMES).toContain(name);
+      }
+    });
+
+    it('generates deterministic alliterative animal name for same seed and steps forward when taken', () => {
+      const name1 = generateAlliterativeAnimalName('seed-alpha');
+      const name2 = generateAlliterativeAnimalName('seed-alpha');
+      expect(name1).toBe(name2);
+
+      const name3 = generateAlliterativeAnimalName('seed-alpha', [name1]);
+      expect(name3).not.toBe(name1);
+      expect(ALLITERATIVE_ANIMAL_NAMES).toContain(name3);
     });
 
     it('updates lastSeenAt and name when existing participant rejoins', () => {

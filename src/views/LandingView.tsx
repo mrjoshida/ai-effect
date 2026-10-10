@@ -197,14 +197,14 @@ export const LandingView: React.FC<LandingViewProps> = ({
                     marginBottom: '0.35rem',
                   }}
                 >
-                  Your Name (Optional)
+                  Your Name (Optional — or get a fun animal alias)
                 </label>
                 <input
                   id="join-name-input"
                   type="text"
                   value={joinName}
                   onChange={(e) => setJoinName(e.target.value)}
-                  placeholder="e.g. Maya"
+                  placeholder="Leave blank for e.g. Curious Capybara"
                   maxLength={24}
                   style={{
                     width: '100%',
