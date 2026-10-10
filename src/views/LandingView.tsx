@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pebble } from '../components/Pebble';
 import { DeckPresetId, ScenarioCategory } from '../types/game';
-import { ExternalLinkIcon, PhoneIcon, ScreenIcon } from '../components/Icons';
+import { PhoneIcon, ScreenIcon } from '../components/Icons';
 
 export interface LandingViewProps {
   onJoinRoom: (code: string, name?: string) => void;
@@ -56,12 +56,12 @@ export const LandingView: React.FC<LandingViewProps> = ({
         <h1 style={{ fontSize: '2.8rem', maxWidth: '820px', lineHeight: 1.15 }}>
           The AI Effect
         </h1>
-        <h2 style[{{ fontSize: '2rem', maxWidth: '820px', lineHeight: 1.15 }}>
+        <h2 style={{ fontSize: '2rem', maxWidth: '820px', lineHeight: 1.15 }}>
           Philanthropy &amp; Human Connection
         </h2>
 
         <p style={{ fontSize: '1.15rem', color: 'var(--ink-secondary)', maxWidth: '720px', lineHeight: 1.5 }}>
-          As we work to automates more workflows in grantmaking and social impact with AI, the hard question moves 
+          As we work to automate more workflows in grantmaking and social impact with AI, the hard question moves 
           from where <em>could</em> we use AI to where <em>must</em> we 
           work to build, protect, and invest in genuine human connection?
         </p>
