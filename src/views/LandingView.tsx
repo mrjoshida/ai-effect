@@ -202,8 +202,8 @@ export const LandingView: React.FC<LandingViewProps> = ({
               Project on the main room screen. Generates an instant high-contrast QR code for phones to scan.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {/* Preset 1: 8-Card Spark */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {/* Option 1: Short Spark Session */}
               <button
                 id="start-spark-btn"
                 onClick={() => onStartHost('spark-8')}
@@ -215,27 +215,132 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 }}
               >
                 <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontWeight: 700 }}>Start 8-Card Spark Session</div>
-                  <div style={{ fontSize: '0.78rem', opacity: 0.85 }}>~25 min • 2 cards per domain • balanced currents</div>
+                  <div style={{ fontWeight: 700 }}>Short Spark Session</div>
+                  <div style={{ fontSize: '0.78rem', opacity: 0.85 }}>8 cards • ~25 min • Balanced across all domains &amp; Currents</div>
                 </div>
                 <span style={{ fontSize: '1.2rem' }}>→</span>
               </button>
 
-              {/* Preset 2: Current 04 Focus */}
-              <button
-                id="start-current04-btn"
-                onClick={() => onStartHost('current-04-focus')}
-                className="btn-secondary"
-                style={{ justifyContent: 'space-between', textAlign: 'left', padding: '0.8rem 1rem' }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>Current 04 Focus: Acting for Us</div>
-                  <div style={{ fontSize: '0.76rem', color: 'var(--ink-muted)' }}>Spotlights agentic proxies &amp; automated mediators</div>
-                </div>
-                <span style={{ color: 'var(--ink-muted)' }}>→</span>
-              </button>
+              {/* Option 2: Focus Sessions for each of the 4 Currents */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: 'var(--ink-muted)',
+                  }}
+                >
+                  Focus Session by Current (6 cards each)
+                </span>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <button
+                    id="start-current01-btn"
+                    onClick={() => onStartHost('current-01-focus')}
+                    className="btn-secondary"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      textAlign: 'left',
+                      padding: '0.65rem 0.8rem',
+                      gap: '0.15rem',
+                    }}
+                  >
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--currents-teal)', textTransform: 'uppercase' }}>
+                      Current 01
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--ink-primary)' }}>
+                      Our Sense of Trust
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', lineHeight: 1.3 }}>
+                      Authenticity &amp; disclosure
+                    </span>
+                  </button>
 
-              {/* Preset 3: Full 20-Card Deck */}
+                  <button
+                    id="start-current02-btn"
+                    onClick={() => onStartHost('current-02-focus')}
+                    className="btn-secondary"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      textAlign: 'left',
+                      padding: '0.65rem 0.8rem',
+                      gap: '0.15rem',
+                    }}
+                  >
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--currents-teal)', textTransform: 'uppercase' }}>
+                      Current 02
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--ink-primary)' }}>
+                      Relationships with AI
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', lineHeight: 1.3 }}>
+                      Companions &amp; rehearsal
+                    </span>
+                  </button>
+
+                  <button
+                    id="start-current03-btn"
+                    onClick={() => onStartHost('current-03-focus')}
+                    className="btn-secondary"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      textAlign: 'left',
+                      padding: '0.65rem 0.8rem',
+                      gap: '0.15rem',
+                    }}
+                  >
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--currents-teal)', textTransform: 'uppercase' }}>
+                      Current 03
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--ink-primary)' }}>
+                      Our Inner Voice
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', lineHeight: 1.3 }}>
+                      Expression &amp; synthesis
+                    </span>
+                  </button>
+
+                  <button
+                    id="start-current04-btn"
+                    onClick={() => onStartHost('current-04-focus')}
+                    className="btn-secondary"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      textAlign: 'left',
+                      padding: '0.65rem 0.8rem',
+                      gap: '0.15rem',
+                    }}
+                  >
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--currents-teal)', textTransform: 'uppercase' }}>
+                      Current 04
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--ink-primary)' }}>
+                      Acting for Us
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', lineHeight: 1.3 }}>
+                      Proxies &amp; mediators
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 3: Full 20-Card Deck */}
               <button
                 id="start-full-btn"
                 onClick={() => onStartHost('full-20')}
@@ -243,8 +348,8 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 style={{ justifyContent: 'space-between', textAlign: 'left', padding: '0.8rem 1rem' }}
               >
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>Full 20-Card Philanthropy Deck</div>
-                  <div style={{ fontSize: '0.76rem', color: 'var(--ink-muted)' }}>Comprehensive library across coworkers, grantees &amp; community</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>Full 20-Card Deck</div>
+                  <div style={{ fontSize: '0.76rem', color: 'var(--ink-muted)' }}>Complete library across coworkers, grantees, community &amp; life</div>
                 </div>
                 <span style={{ color: 'var(--ink-muted)' }}>→</span>
               </button>

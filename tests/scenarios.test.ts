@@ -239,14 +239,22 @@ describe('Philanthropy Scenarios & The 4 Currents', () => {
       expect(currentCounts['current-04']).toBeGreaterThanOrEqual(1);
     });
 
-    it('generates current-04-focus preset containing all Current 04 cards', () => {
-      const c4Cards = getPresetScenarios('current-04-focus');
-      expect(c4Cards.length).toBeGreaterThanOrEqual(6);
-      expect(c4Cards.length).toBeLessThanOrEqual(8);
+    it('generates focus presets for each of the 4 Currents containing all scenarios for that Current', () => {
+      const focusPresets: Array<{ preset: 'current-01-focus' | 'current-02-focus' | 'current-03-focus' | 'current-04-focus'; currentId: RithmCurrentId }> = [
+        { preset: 'current-01-focus', currentId: 'current-01' },
+        { preset: 'current-02-focus', currentId: 'current-02' },
+        { preset: 'current-03-focus', currentId: 'current-03' },
+        { preset: 'current-04-focus', currentId: 'current-04' },
+      ];
 
-      const allC4 = PHILANTHROPY_SCENARIOS.filter((s) => s.currentId === 'current-04');
-      for (const scenario of allC4) {
-        expect(c4Cards.some((s) => s.id === scenario.id)).toBe(true);
+      for (const { preset, currentId } of focusPresets) {
+        const cards = getPresetScenarios(preset);
+        expect(cards).toHaveLength(6);
+
+        const allForCurrent = PHILANTHROPY_SCENARIOS.filter((s) => s.currentId === currentId);
+        for (const scenario of allForCurrent) {
+          expect(cards.some((s) => s.id === scenario.id)).toBe(true);
+        }
       }
     });
 
@@ -264,8 +272,15 @@ describe('Philanthropy Scenarios & The 4 Currents', () => {
       expect(emptyCategories).toHaveLength(20);
     });
 
-    it('interleaves categories across spark-8, current-04-focus, and full-20 so work scenarios are never front-loaded', () => {
-      for (const preset of ['spark-8', 'current-04-focus', 'full-20'] as const) {
+    it('interleaves categories across spark-8, all 4 current focus presets, and full-20 so work scenarios are never front-loaded', () => {
+      for (const preset of [
+        'spark-8',
+        'current-01-focus',
+        'current-02-focus',
+        'current-03-focus',
+        'current-04-focus',
+        'full-20',
+      ] as const) {
         const deck = getPresetScenarios(preset);
         // Starts with Everyday Life and Community before Coworkers and Grantees
         expect(deck[0].category).toBe('life');

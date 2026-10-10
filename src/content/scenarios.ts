@@ -420,7 +420,37 @@ const SPARK_8_IDS: string[] = [
   'cw-meeting-bot',      // coworkers, current-04
 ];
 
-// Current-04 Focus: Interleaved across Everyday Life, Community, Coworkers, and Grantees
+// Current-01 Focus (Our sense of trust): All 5 Current-01 scenarios + 1 complementary, interleaved
+const CURRENT_01_FOCUS_IDS: string[] = [
+  'lf-apology-text',     // life, current-01
+  'cm-essay-feedback',   // community, current-01
+  'cw-kudos',            // coworkers, current-01
+  'gr-decline-note',     // grantees, current-01
+  'lf-wedding-toast',    // life, current-03 complementary
+  'gr-prototype-nudge',  // grantees, current-01
+];
+
+// Current-02 Focus (Relationships with AI): All 4 Current-02 scenarios + 2 complementary, interleaved
+const CURRENT_02_FOCUS_IDS: string[] = [
+  'lf-elder-checkin',    // life, current-02
+  'cm-youth-companion',  // community, current-02
+  'cw-difficult-talk',   // coworkers, current-02
+  'gr-checkin-prep',     // grantees, current-04 complementary
+  'lf-bedtime-story',    // life, current-04 complementary
+  'cw-onboarding',       // coworkers, current-02
+];
+
+// Current-03 Focus (Our inner voice): All 5 Current-03 scenarios + 1 complementary, interleaved
+const CURRENT_03_FOCUS_IDS: string[] = [
+  'lf-wedding-toast',    // life, current-03
+  'cm-town-hall',        // community, current-03
+  'cw-strategy-memo',    // coworkers, current-03
+  'gr-proposal-polish',  // grantees, current-03
+  'cm-essay-feedback',   // community, current-01 complementary
+  'gr-story-synthesis',  // grantees, current-03
+];
+
+// Current-04 Focus (Acting for us): All 6 Current-04 scenarios, interleaved
 const CURRENT_04_FOCUS_IDS: string[] = [
   'lf-bedtime-story',    // life, current-04
   'cm-parent-translate', // community, current-04
@@ -428,8 +458,6 @@ const CURRENT_04_FOCUS_IDS: string[] = [
   'gr-checkin-prep',     // grantees, current-04
   'lf-group-trip',       // life, current-04
   'cm-mock-interview',   // community, current-04
-  'cw-kudos',            // coworkers, current-01 complementary
-  'gr-proposal-polish',  // grantees, current-03 complementary
 ];
 
 export function getPresetScenarios(
@@ -439,6 +467,12 @@ export function getPresetScenarios(
   switch (preset) {
     case 'spark-8':
       return SPARK_8_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
+    case 'current-01-focus':
+      return CURRENT_01_FOCUS_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
+    case 'current-02-focus':
+      return CURRENT_02_FOCUS_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
+    case 'current-03-focus':
+      return CURRENT_03_FOCUS_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
     case 'current-04-focus':
       return CURRENT_04_FOCUS_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
     case 'full-20':
