@@ -144,10 +144,11 @@ describe('Room Engine State Machine & Analytics', () => {
   describe('Voting & "What If?" Twist Shifts', () => {
     it('records initial vote matching initialStance and currentStance', () => {
       let room = createRoomState();
+      const firstId = room.scenarios[0].id;
       room = setRoomPhase(room, 'voting');
-      room = recordParticipantVote(room, 'c1', 'cw-kudos', 'support', 'Great idea');
+      room = recordParticipantVote(room, 'c1', firstId, 'support', 'Great idea');
 
-      const round = room.rounds['cw-kudos'];
+      const round = room.rounds[firstId];
       expect(round).toBeDefined();
       expect(round.votes['c1']).toBeDefined();
       expect(round.votes['c1'].initialStance).toBe('support');
@@ -158,18 +159,19 @@ describe('Room Engine State Machine & Analytics', () => {
 
     it('preserves initialStance and marks shiftedInTwist when participant shifts in twist phase', () => {
       let room = createRoomState();
+      const firstId = room.scenarios[0].id;
       room = setRoomPhase(room, 'voting');
-      room = recordParticipantVote(room, 'c1', 'cw-kudos', 'support', 'Initial note');
+      room = recordParticipantVote(room, 'c1', firstId, 'support', 'Initial note');
 
       // Trigger twist
       room = triggerScenarioTwist(room);
       expect(room.phase).toBe('twist');
-      expect(room.rounds['cw-kudos'].twistTriggered).toBe(true);
+      expect(room.rounds[firstId].twistTriggered).toBe(true);
 
       // Participant shifts from support to depends
-      room = recordParticipantVote(room, 'c1', 'cw-kudos', 'depends', 'Shifted note');
+      room = recordParticipantVote(room, 'c1', firstId, 'depends', 'Shifted note');
 
-      const vote = room.rounds['cw-kudos'].votes['c1'];
+      const vote = room.rounds[firstId].votes['c1'];
       expect(vote.initialStance).toBe('support');
       expect(vote.currentStance).toBe('depends');
       expect(vote.shiftedInTwist).toBe(true);
@@ -178,13 +180,14 @@ describe('Room Engine State Machine & Analytics', () => {
 
     it('marks shiftedInTwist: false if participant reaffirms same stance in twist phase', () => {
       let room = createRoomState();
+      const firstId = room.scenarios[0].id;
       room = setRoomPhase(room, 'voting');
-      room = recordParticipantVote(room, 'c1', 'cw-kudos', 'support');
+      room = recordParticipantVote(room, 'c1', firstId, 'support');
 
       room = triggerScenarioTwist(room);
-      room = recordParticipantVote(room, 'c1', 'cw-kudos', 'support');
+      room = recordParticipantVote(room, 'c1', firstId, 'support');
 
-      const vote = room.rounds['cw-kudos'].votes['c1'];
+      const vote = room.rounds[firstId].votes['c1'];
       expect(vote.initialStance).toBe('support');
       expect(vote.currentStance).toBe('support');
       expect(vote.shiftedInTwist).toBe(false);
@@ -192,10 +195,11 @@ describe('Room Engine State Machine & Analytics', () => {
 
     it('handles late voter voting for the first time during twist phase', () => {
       let room = createRoomState();
+      const firstId = room.scenarios[0].id;
       room = triggerScenarioTwist(room);
-      room = recordParticipantVote(room, 'late-voter', 'cw-kudos', 'erode');
+      room = recordParticipantVote(room, 'late-voter', firstId, 'erode');
 
-      const vote = room.rounds['cw-kudos'].votes['late-voter'];
+      const vote = room.rounds[firstId].votes['late-voter'];
       expect(vote.initialStance).toBe('erode');
       expect(vote.currentStance).toBe('erode');
       expect(vote.shiftedInTwist).toBe(false);
@@ -408,9 +412,9 @@ describe('Room Engine State Machine & Analytics', () => {
 
     it('synthesizes workshop data across all 4 Currents', () => {
       let room = createRoomState();
-      // Vote on scenario 0 (cw-kudos, current-01)
-      room = recordParticipantVote(room, 'c1', room.scenarios[0].id, 'support');
-      room = recordParticipantVote(room, 'c2', room.scenarios[0].id, 'support');
+      // Vote on cw-kudos (current-01)
+      room = recordParticipantVote(room, 'c1', 'cw-kudos', 'support');
+      room = recordParticipantVote(room, 'c2', 'cw-kudos', 'support');
       room = updateCurrentCommitment(room, 'current-01', 'Protect authentic praise');
 
       const synthesis = computeCurrentsSynthesis(room);
@@ -421,7 +425,7 @@ describe('Room Engine State Machine & Analytics', () => {
       expect(current1Bucket?.commitmentText).toBe('Protect authentic praise');
       expect(current1Bucket?.dominantStance).toBe('support');
 
-      const item = current1Bucket?.items.find((i) => i.scenario.id === room.scenarios[0].id);
+      const item = current1Bucket?.items.find((i) => i.scenario.id === 'cw-kudos');
       expect(item?.consensusType).toBe('green_zone'); // 100% support
     });
 

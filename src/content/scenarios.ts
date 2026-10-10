@@ -82,7 +82,7 @@ export const STANCE_LIST: StanceMeta[] = [
   STANCE_META.erode,
 ];
 
-export const PHILANTHROPY_SCENARIOS: ScenarioCard[] = [
+const RAW_SCENARIOS: ScenarioCard[] = [
   // --- Domain 1: Coworkers ---
   {
     id: 'cw-kudos',
@@ -372,30 +372,64 @@ export const PHILANTHROPY_SCENARIOS: ScenarioCard[] = [
   },
 ];
 
-const SCENARIOS_BY_ID = new Map(PHILANTHROPY_SCENARIOS.map((s) => [s.id, s]));
+const SCENARIOS_BY_ID = new Map(RAW_SCENARIOS.map((s) => [s.id, s]));
 
-// Spark-8: 8 scenarios (2 per category, exactly 2 covering each of the 4 Currents)
-const SPARK_8_IDS: string[] = [
-  'cw-kudos',        // coworkers, current-01
-  'cw-meeting-bot',  // coworkers, current-04
-  'gr-proposal-polish', // grantees, current-03
-  'gr-checkin-prep', // grantees, current-04
-  'cm-youth-companion', // community, current-02
-  'cm-essay-feedback', // community, current-01
-  'lf-wedding-toast', // life, current-03
-  'lf-elder-checkin', // life, current-02
+// Interleaved 20-card order: 5 rounds rotating Everyday Life -> Community -> Coworkers -> Grantees
+// so sessions never front-load workplace scenarios and always alternate human contexts.
+const INTERLEAVED_FULL_20_IDS: string[] = [
+  // Round 1
+  'lf-wedding-toast',    // life, current-03
+  'cm-essay-feedback',   // community, current-01
+  'cw-kudos',            // coworkers, current-01
+  'gr-proposal-polish',  // grantees, current-03
+  // Round 2
+  'lf-elder-checkin',    // life, current-02
+  'cm-youth-companion',  // community, current-02
+  'cw-meeting-bot',      // coworkers, current-04
+  'gr-checkin-prep',     // grantees, current-04
+  // Round 3
+  'lf-bedtime-story',    // life, current-04
+  'cm-parent-translate', // community, current-04
+  'cw-difficult-talk',   // coworkers, current-02
+  'gr-decline-note',     // grantees, current-01
+  // Round 4
+  'lf-apology-text',     // life, current-01
+  'cm-town-hall',        // community, current-03
+  'cw-strategy-memo',    // coworkers, current-03
+  'gr-story-synthesis',  // grantees, current-03
+  // Round 5
+  'lf-group-trip',       // life, current-04
+  'cm-mock-interview',   // community, current-04
+  'cw-onboarding',       // coworkers, current-02
+  'gr-prototype-nudge',  // grantees, current-01
 ];
 
-// Current-04 Focus: All 6 Current-04 scenarios + 2 complementary scenarios
+export const PHILANTHROPY_SCENARIOS: ScenarioCard[] = INTERLEAVED_FULL_20_IDS.map(
+  (id) => SCENARIOS_BY_ID.get(id)!
+).filter(Boolean);
+
+// Spark-8: 8 interleaved scenarios (2 per category, 2 per Current, no adjacent categories)
+const SPARK_8_IDS: string[] = [
+  'lf-wedding-toast',    // life, current-03
+  'cm-essay-feedback',   // community, current-01
+  'cw-kudos',            // coworkers, current-01
+  'gr-proposal-polish',  // grantees, current-03
+  'lf-elder-checkin',    // life, current-02
+  'gr-checkin-prep',     // grantees, current-04
+  'cm-youth-companion',  // community, current-02
+  'cw-meeting-bot',      // coworkers, current-04
+];
+
+// Current-04 Focus: Interleaved across Everyday Life, Community, Coworkers, and Grantees
 const CURRENT_04_FOCUS_IDS: string[] = [
-  'cw-meeting-bot',   // current-04
-  'gr-checkin-prep',   // current-04
-  'cm-parent-translate', // current-04
-  'cm-mock-interview', // current-04
-  'lf-bedtime-story', // current-04
-  'lf-group-trip',     // current-04
-  'cw-kudos',          // current-01 complementary
-  'gr-proposal-polish', // current-03 complementary
+  'lf-bedtime-story',    // life, current-04
+  'cm-parent-translate', // community, current-04
+  'cw-meeting-bot',      // coworkers, current-04
+  'gr-checkin-prep',     // grantees, current-04
+  'lf-group-trip',       // life, current-04
+  'cm-mock-interview',   // community, current-04
+  'cw-kudos',            // coworkers, current-01 complementary
+  'gr-proposal-polish',  // grantees, current-03 complementary
 ];
 
 export function getPresetScenarios(
@@ -419,3 +453,4 @@ export function getPresetScenarios(
       return [...PHILANTHROPY_SCENARIOS];
   }
 }
+
