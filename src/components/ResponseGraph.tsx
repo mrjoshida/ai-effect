@@ -3,6 +3,7 @@ import { STANCE_META, STANCE_LIST } from '../content/scenarios';
 import { computeStanceTally, computeTwistShiftDelta } from '../state/roomEngine';
 import { Participant, ScenarioRoundRecord, Stance } from '../types/game';
 import { Pebble } from './Pebble';
+import { SparkIcon } from './Icons';
 
 export interface ResponseGraphProps {
   round?: ScenarioRoundRecord;
@@ -164,7 +165,7 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.1rem' }}>⚡</span>
+              <SparkIcon size={18} style={{ color: 'var(--stance-depends-accent)' }} />
               <strong style={{ color: 'var(--stance-depends-text)', fontSize: '0.95rem' }}>
                 "What If?" Context Shift Impact
               </strong>

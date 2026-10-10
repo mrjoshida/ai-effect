@@ -278,4 +278,47 @@ describe('Philanthropy Scenarios & The 4 Currents', () => {
       expect(STANCE_LIST).toHaveLength(3);
     });
   });
+
+  describe('Zero-Emoji Guard (Editorial Line Icons)', () => {
+    it('enforces ZERO emojis or unicode pictographs across all .ts and .tsx source files in src/', () => {
+      const srcDir = path.resolve(__dirname, '../src');
+
+      function getSourceFiles(dir: string): string[] {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        let files: string[] = [];
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            files = files.concat(getSourceFiles(fullPath));
+          } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+            files.push(fullPath);
+          }
+        }
+        return files;
+      }
+
+      const sourceFiles = getSourceFiles(srcDir);
+      expect(sourceFiles.length).toBeGreaterThanOrEqual(10);
+
+      const violations: { file: string; line: number; text: string; match: string }[] = [];
+
+      for (const file of sourceFiles) {
+        const content = fs.readFileSync(file, 'utf8');
+        const lines = content.split('\n');
+        lines.forEach((line, index) => {
+          const matches = line.match(/\p{Extended_Pictographic}/gu);
+          if (matches) {
+            violations.push({
+              file: path.relative(srcDir, file),
+              line: index + 1,
+              text: line.trim(),
+              match: matches.join(', '),
+            });
+          }
+        });
+      }
+
+      expect(violations).toEqual([]);
+    });
+  });
 });

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ParticipantView } from '../views/ParticipantView';
 import { createClientChannel, ClientRoomChannel } from '../utils/roomSync';
 import { RoomState } from '../types/game';
+import { PhoneIcon, CloseIcon } from './Icons';
 
 export interface MobilePreviewDrawerProps {
   room: RoomState;
@@ -101,7 +102,7 @@ export const MobilePreviewDrawer: React.FC<MobilePreviewDrawerProps> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ fontSize: '0.75rem' }}>📱</span>
+            <PhoneIcon size={14} />
             <span style={{ fontWeight: 600 }}>Mobile Participant Dry-Run</span>
           </div>
 
@@ -110,14 +111,15 @@ export const MobilePreviewDrawer: React.FC<MobilePreviewDrawerProps> = ({
             onClick={onClose}
             style={{
               color: '#FAF6F0',
-              fontSize: '1rem',
-              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               padding: '0.2rem 0.4rem',
               borderRadius: 'var(--radius-sm)',
             }}
             title="Close mobile preview"
           >
-            ✕
+            <CloseIcon size={14} />
           </button>
         </div>
 

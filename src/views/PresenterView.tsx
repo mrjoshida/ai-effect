@@ -17,6 +17,15 @@ import {
 import { buildJoinUrl, generateJoinQrSvg } from '../utils/qrCode';
 import { HostRoomChannel } from '../utils/roomSync';
 import { RithmCurrentId, RoomState, ScenarioCard, ScenarioCategory } from '../types/game';
+import {
+  DiceIcon,
+  ExternalLinkIcon,
+  PhoneIcon,
+  QrIcon,
+  SparkIcon,
+  UsersIcon,
+  WaveIcon,
+} from '../components/Icons';
 
 export interface PresenterViewProps {
   room: RoomState;
@@ -243,10 +252,10 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               id="toggle-qr-btn"
               onClick={() => setShowQrModal(true)}
               className="btn-secondary"
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem' }}
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
               title="Show join QR code for latecomers"
             >
-              📷 Show QR
+              <QrIcon size={14} /> Show QR
             </button>
           </div>
         </div>
@@ -267,7 +276,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               gap: '0.4rem',
             }}
           >
-            <span>👥</span>
+            <UsersIcon size={14} />
             <span>{totalParticipants} {totalParticipants === 1 ? 'player' : 'players'}</span>
           </span>
 
@@ -298,20 +307,20 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
             id="simulate-votes-btn"
             onClick={handleSimulateVotes}
             className="btn-secondary"
-            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}
+            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             title="Populate test votes from simulated team members"
           >
-            🎲 Simulate Votes
+            <DiceIcon size={14} /> Simulate Votes
           </button>
 
           <button
             id="toggle-mobile-preview-btn"
             onClick={() => setShowMobilePreview(!showMobilePreview)}
             className="btn-secondary"
-            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}
+            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             title="Open side-by-side mobile phone preview"
           >
-            📱 Mobile Preview
+            <PhoneIcon size={14} /> Mobile Preview
           </button>
 
           <button
@@ -331,10 +340,10 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               updateRoomState(next);
             }}
             className={room.phase === 'currents_workshop' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}
+            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             title="Open the Four Currents Workshop synthesis"
           >
-            🌊 Currents Workshop
+            <WaveIcon size={14} /> Currents Workshop
           </button>
         </div>
       </header>
@@ -640,8 +649,9 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                       className="badge-current"
                       title={currentMeta.pullDescription}
                     >
-                      <span>🌊</span>
-                      <span>{currentMeta.number}: {currentMeta.title} ↗</span>
+                      <WaveIcon size={14} />
+                      <span>{currentMeta.number}: {currentMeta.title}</span>
+                      <ExternalLinkIcon size={12} />
                     </a>
                   )}
                 </div>
@@ -663,7 +673,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 {twistActive && (
                   <div className="twist-banner animate-pebble-drop" style={{ marginTop: '0.5rem' }}>
                     <div className="twist-banner-title">
-                      <span>⚡</span>
+                      <SparkIcon size={16} />
                       <span>The "What If?" Context Shift</span>
                     </div>
                     <div className="twist-banner-body">
@@ -798,13 +808,18 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                           style={{
                             backgroundColor: 'var(--stance-depends)',
                             padding: '0.75rem 1.4rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
                           }}
                         >
-                          ⚡ Reveal "What If?" Twist →
+                          <SparkIcon size={15} />
+                          <span>Reveal "What If?" Twist →</span>
                         </button>
                       ) : (
-                        <span style={{ fontSize: '0.85rem', color: 'var(--stance-depends-text)', fontWeight: 600 }}>
-                          ⚡ "What If?" Twist Active — Voters can shift stances in real time!
+                        <span style={{ fontSize: '0.85rem', color: 'var(--stance-depends-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <SparkIcon size={15} />
+                          <span>"What If?" Twist Active — Voters can shift stances in real time!</span>
                         </span>
                       )}
 
