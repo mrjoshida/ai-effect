@@ -19,6 +19,7 @@ import { HostRoomChannel } from '../utils/roomSync';
 import { RoomState, ScenarioCard } from '../types/game';
 import {
   CloseIcon,
+  PencilIcon,
   QrIcon,
   SparkIcon,
   UsersIcon,
@@ -29,6 +30,7 @@ export interface PresenterViewProps {
   room: RoomState;
   channel: HostRoomChannel;
   onUpdateRoom: (room: RoomState) => void;
+  onChangeRoomCode?: (newCode: string) => void;
   onExit: () => void;
 }
 
@@ -36,13 +38,17 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
   room,
   channel,
   onUpdateRoom,
+  onChangeRoomCode,
   onExit,
 }) => {
   const [qrSvg, setQrSvg] = useState<string>('');
   const [showQrModal, setShowQrModal] = useState(false);
+  const [isEditingCode, setIsEditingCode] = useState(false);
+  const [draftCode, setDraftCode] = useState(room.code);
 
   // Generate QR code SVG whenever room code changes
   useEffect(() => {
+    setDraftCode(room.code);
     let active = true;
     const joinUrl = buildJoinUrl(room.code);
     generateJoinQrSvg(joinUrl).then((svg) => {
@@ -52,6 +58,17 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
       active = false;
     };
   }, [room.code]);
+
+  const handleSaveCustomCode = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const clean = draftCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
+    setIsEditingCode(false);
+    if (clean && clean.length >= 2 && clean !== room.code) {
+      onChangeRoomCode?.(clean);
+    } else {
+      setDraftCode(room.code);
+    }
+  };
 
   // Synchronize room updates: save to storage and broadcast to channel
   const updateRoomState = (next: RoomState) => {
@@ -240,21 +257,70 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.95rem',
-                fontWeight: 700,
-                backgroundColor: 'var(--bg-tray)',
-                border: '1px solid var(--border-default)',
-                padding: '0.3rem 0.75rem',
-                borderRadius: 'var(--radius-md)',
-                letterSpacing: '0.08em',
-                color: 'var(--ink-primary)',
-              }}
-            >
-              CODE: {room.code}
-            </span>
+            {isEditingCode ? (
+              <form onSubmit={handleSaveCustomCode} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <input
+                  id="edit-room-code-input"
+                  type="text"
+                  value={draftCode}
+                  onChange={(e) =>
+                    setDraftCode(
+                      e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12)
+                    )
+                  }
+                  maxLength={12}
+                  autoFocus
+                  style={{
+                    width: '120px',
+                    padding: '0.28rem 0.55rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--currents-teal)',
+                    backgroundColor: '#FFFDF9',
+                    color: 'var(--ink-primary)',
+                  }}
+                />
+                <button
+                  id="save-room-code-btn"
+                  type="submit"
+                  className="btn-primary"
+                  style={{ padding: '0.3rem 0.65rem', fontSize: '0.78rem' }}
+                >
+                  Save
+                </button>
+              </form>
+            ) : (
+              <button
+                id="edit-room-code-btn"
+                onClick={() => {
+                  setDraftCode(room.code);
+                  setIsEditingCode(true);
+                }}
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.95rem',
+                  fontWeight: 700,
+                  backgroundColor: 'var(--bg-tray)',
+                  border: '1px solid var(--border-default)',
+                  padding: '0.3rem 0.75rem',
+                  borderRadius: 'var(--radius-md)',
+                  letterSpacing: '0.08em',
+                  color: 'var(--ink-primary)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  cursor: 'pointer',
+                }}
+                title="Click to set a custom room code"
+              >
+                <span>CODE: {room.code}</span>
+                <PencilIcon size={12} style={{ color: 'var(--ink-muted)' }} />
+              </button>
+            )}
 
             <button
               id="toggle-qr-btn"

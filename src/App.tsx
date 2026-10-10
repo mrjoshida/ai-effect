@@ -49,14 +49,14 @@ export const App: React.FC = () => {
 
     if (!codeParam && window.location.hash) {
       const hash = window.location.hash;
-      const match = hash.match(/#(?:join\/|join\?code=)?([A-Za-z0-9]{3,6})/);
+      const match = hash.match(/#(?:join\/|join\?code=)?([A-Za-z0-9-]{2,12})/);
       if (match) {
         codeParam = match[1];
       }
     }
 
     if (codeParam) {
-      const clean = codeParam.trim().toUpperCase();
+      const clean = codeParam.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
       setInitialCodeFromUrl(clean);
       handleJoinRoom(clean);
       return;
@@ -64,10 +64,15 @@ export const App: React.FC = () => {
 
     const hostParam = urlParams.get('host');
     if (hostParam) {
-      const cleanHost = hostParam.trim().toUpperCase();
-      const existing = loadHostRoomState(cleanHost);
-      if (existing) {
-        resumeHost(existing);
+      const cleanHost = hostParam.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
+      if (cleanHost) {
+        const existing = loadHostRoomState(cleanHost);
+        if (existing) {
+          resumeHost(existing);
+        } else {
+          const presetParam = (urlParams.get('preset') as DeckPresetId) || 'spark-8';
+          handleStartHost(presetParam, undefined, cleanHost);
+        }
       }
     }
   }, []);
@@ -107,14 +112,19 @@ export const App: React.FC = () => {
   // Start Facilitating (Host)
   const handleStartHost = (
     preset: DeckPresetId,
-    selectedCategories?: ScenarioCategory[]
+    selectedCategories?: ScenarioCategory[],
+    customCode?: string
   ) => {
     // Clean up any prior channels
     hostChannel?.destroy();
     participantChannel?.destroy();
 
+    const cleanCustomCode = customCode
+      ? customCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12)
+      : undefined;
+
     const deck = getPresetScenarios(preset, selectedCategories);
-    const newRoom = createRoomState(deck);
+    const newRoom = createRoomState(deck, cleanCustomCode || undefined);
     saveHostRoomState(newRoom);
 
     // Create host channel
@@ -138,14 +148,52 @@ export const App: React.FC = () => {
 
     // Update URL query param so refresh restores host session seamlessly
     if (typeof window !== 'undefined' && window.history?.replaceState) {
-      const newUrl = `${window.location.pathname}?host=${newRoom.code}`;
+      const newUrl = `${window.location.pathname}?host=${encodeURIComponent(newRoom.code)}`;
+      window.history.replaceState(null, '', newUrl);
+    }
+  };
+
+  // Allow facilitator to change the room code live inside PresenterView
+  const handleChangeHostCode = (nextCodeRaw: string) => {
+    if (!hostRoom) return;
+    const cleanCode = nextCodeRaw.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
+    if (!cleanCode || cleanCode === hostRoom.code) return;
+
+    hostChannel?.destroy();
+
+    const updatedRoom: RoomState = {
+      ...hostRoom,
+      code: cleanCode,
+      updatedAt: Date.now(),
+    };
+    saveHostRoomState(updatedRoom);
+
+    const channel = createHostChannel(
+      cleanCode,
+      updatedRoom,
+      (inboundMsg: ClientInboundMessage) => {
+        setHostRoom((prev) => {
+          if (!prev) return null;
+          const next = applyInboundMessage(prev, inboundMsg);
+          saveHostRoomState(next);
+          channel.publishState(next);
+          return next;
+        });
+      }
+    );
+
+    setHostRoom(updatedRoom);
+    setHostChannel(channel);
+
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      const newUrl = `${window.location.pathname}?host=${encodeURIComponent(cleanCode)}`;
       window.history.replaceState(null, '', newUrl);
     }
   };
 
   // Join as Participant
   const handleJoinRoom = (code: string, name?: string) => {
-    const cleanCode = code.trim().toUpperCase();
+    const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
     if (!cleanCode) return;
 
     // Clean up any prior channels
@@ -175,7 +223,7 @@ export const App: React.FC = () => {
 
     // Update URL query param cleanly without reloading
     if (typeof window !== 'undefined' && window.history?.replaceState) {
-      const newUrl = `${window.location.pathname}?code=${cleanCode}`;
+      const newUrl = `${window.location.pathname}?code=${encodeURIComponent(cleanCode)}`;
       window.history.replaceState(null, '', newUrl);
     }
   };
@@ -214,6 +262,7 @@ export const App: React.FC = () => {
           room={hostRoom}
           channel={hostChannel}
           onUpdateRoom={(updated) => setHostRoom(updated)}
+          onChangeRoomCode={handleChangeHostCode}
           onExit={handleExitToLanding}
         />
       )}
