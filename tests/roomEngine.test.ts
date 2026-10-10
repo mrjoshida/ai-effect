@@ -19,6 +19,7 @@ import {
   navigateToScenario,
   recordParticipantVote,
   saveHostRoomState,
+  setFramingSlideIndex,
   setRoomPhase,
   setWorkshopStage,
   simulateTeamVotesForCurrentScenario,
@@ -250,6 +251,40 @@ describe('Room Engine State Machine & Analytics', () => {
       expect(room.currentCommitments['current-04']).toBe(
         'Always require human signoff for outbound grantee feedback'
       );
+    });
+
+    it('sets framing slide index and clamps negative index to 0', () => {
+      let room = createRoomState();
+      room = setFramingSlideIndex(room, 2);
+      expect(room.framingSlideIndex).toBe(2);
+
+      room = setFramingSlideIndex(room, -3);
+      expect(room.framingSlideIndex).toBe(0);
+    });
+
+    it('resets framingSlideIndex to 0 when entering opening_framing or currents_framing', () => {
+      let room = createRoomState();
+      room = setFramingSlideIndex(room, 2);
+      expect(room.framingSlideIndex).toBe(2);
+
+      // Transition to opening_framing
+      room = setRoomPhase(room, 'opening_framing');
+      expect(room.phase).toBe('opening_framing');
+      expect(room.framingSlideIndex).toBe(0);
+
+      // Advance slide index in opening_framing
+      room = setFramingSlideIndex(room, 2);
+      expect(room.framingSlideIndex).toBe(2);
+
+      // Transition to voting preserves slide index
+      room = setRoomPhase(room, 'voting');
+      expect(room.phase).toBe('voting');
+      expect(room.framingSlideIndex).toBe(2);
+
+      // Transition to currents_framing resets index to 0
+      room = setRoomPhase(room, 'currents_framing');
+      expect(room.phase).toBe('currents_framing');
+      expect(room.framingSlideIndex).toBe(0);
     });
   });
 

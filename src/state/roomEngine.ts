@@ -186,6 +186,7 @@ export function createRoomState(
       'current-03': '',
       'current-04': '',
     },
+    framingSlideIndex: 0,
     workshopStage: 'small_groups',
     workshopProposals: {},
   };
@@ -370,11 +371,25 @@ export function setRoomPhase(room: RoomState, phase: RoomPhase): RoomState {
     };
   }
 
+  const framingSlideIndex =
+    phase === 'opening_framing' || phase === 'currents_framing'
+      ? 0
+      : room.framingSlideIndex ?? 0;
+
   return {
     ...room,
     phase,
     rounds,
+    framingSlideIndex,
     updatedAt: now,
+  };
+}
+
+export function setFramingSlideIndex(room: RoomState, index: number): RoomState {
+  return {
+    ...room,
+    framingSlideIndex: Math.max(0, index),
+    updatedAt: Date.now(),
   };
 }
 

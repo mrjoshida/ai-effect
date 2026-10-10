@@ -181,7 +181,6 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
   const isTwist = phase === 'twist';
   const isRevealed = phase === 'revealed' || phase === 'twist';
   const tally = currentRound ? computeStanceTally(currentRound.votes, false) : null;
-  const currentMeta = currentScenario ? getCurrentMeta(currentScenario.currentId) : null;
   const categoryMeta = currentScenario ? CATEGORY_META[currentScenario.category] : null;
 
   // Workshop-specific calculations
@@ -335,6 +334,515 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
             </p>
           </div>
         </div>
+      ) : phase === 'opening_framing' ? (
+        /* =================================================================
+           OPENING FRAMING COMPANION VIEW
+           ================================================================= */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div
+            className="card-tabletop"
+            style={{
+              padding: '1.25rem',
+              borderTop: '4px solid var(--currents-teal)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.85rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: 'var(--currents-teal)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                Session Framing
+              </span>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.75rem',
+                  color: 'var(--ink-muted)',
+                }}
+              >
+                Slide {((room?.framingSlideIndex ?? 0) + 1)} of 3
+              </span>
+            </div>
+
+            {(room?.framingSlideIndex ?? 0) === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <h2 style={{ fontSize: '1.4rem', margin: 0, lineHeight: 1.25 }}>
+                  AI: Capacity for What?
+                </h2>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: '0.98rem',
+                    fontStyle: 'italic',
+                    color: 'var(--ink-secondary)',
+                    lineHeight: 1.45,
+                    margin: 0,
+                  }}
+                >
+                  "The more capable our technology becomes, the more valuable the human parts of our work become."
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.25rem' }}>
+                  <div
+                    style={{
+                      padding: '0.85rem',
+                      backgroundColor: 'var(--bg-tray)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-default)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: 'var(--ink-muted)',
+                        display: 'block',
+                        marginBottom: '0.2rem',
+                      }}
+                    >
+                      First-Order Efficiency
+                    </span>
+                    <strong style={{ fontSize: '0.92rem', color: 'var(--ink-primary)' }}>
+                      Automate &amp; Understand
+                    </strong>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', margin: '0.25rem 0 0 0', lineHeight: 1.4 }}>
+                      Synthesizing information, analyzing portfolios, and moving data faster.
+                    </p>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '0.85rem',
+                      backgroundColor: 'var(--currents-teal-tint)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--currents-teal-border)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: 'var(--currents-teal)',
+                        display: 'block',
+                        marginBottom: '0.2rem',
+                      }}
+                    >
+                      The Real Destination
+                    </span>
+                    <strong style={{ fontSize: '0.92rem', color: 'var(--currents-teal)' }}>
+                      Meaningful Progress
+                    </strong>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--ink-primary)', margin: '0.25rem 0 0 0', lineHeight: 1.4 }}>
+                      Shifting our question from "how much activity?" to "how much lasting progress together?"
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (room?.framingSlideIndex ?? 0) === 1 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <h2 style={{ fontSize: '1.4rem', margin: 0, lineHeight: 1.25 }}>
+                  The Protected Human Core
+                </h2>
+                <p style={{ fontSize: '0.88rem', color: 'var(--ink-secondary)', margin: 0 }}>
+                  Four uniquely human strengths we never outsource to automated systems:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div
+                    style={{
+                      padding: '0.7rem 0.85rem',
+                      backgroundColor: 'var(--bg-card-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      borderLeft: '3px solid var(--stance-support)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--stance-support-text)' }}>
+                      1. Empathy
+                    </strong>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--ink-secondary)', margin: '0.15rem 0 0 0', lineHeight: 1.35 }}>
+                      Preserving genuine compassion. Empathy cannot be simulated or delegated.
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      padding: '0.7rem 0.85rem',
+                      backgroundColor: 'var(--bg-card-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      borderLeft: '3px solid var(--stance-depends)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--stance-depends-text)' }}>
+                      2. Judgment
+                    </strong>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--ink-secondary)', margin: '0.15rem 0 0 0', lineHeight: 1.35 }}>
+                      Ethical reasoning, creative breakthroughs, and philosophical trade-offs remain human.
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      padding: '0.7rem 0.85rem',
+                      backgroundColor: 'var(--bg-card-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      borderLeft: '3px solid var(--currents-teal)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--currents-teal)' }}>
+                      3. Trust
+                    </strong>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--ink-secondary)', margin: '0.15rem 0 0 0', lineHeight: 1.35 }}>
+                      Earning credibility through transparency, shared accountability, and vulnerability.
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      padding: '0.7rem 0.85rem',
+                      backgroundColor: 'var(--bg-card-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      borderLeft: '3px solid var(--stance-erode)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.88rem', color: 'var(--stance-erode-text)' }}>
+                      4. Relationships
+                    </strong>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--ink-secondary)', margin: '0.15rem 0 0 0', lineHeight: 1.35 }}>
+                      Collaborative networks and mutual respect that must never be automated.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                <h2 style={{ fontSize: '1.4rem', margin: 0, lineHeight: 1.25 }}>
+                  Our Distinctive Role
+                </h2>
+                <p style={{ fontSize: '0.88rem', color: 'var(--ink-secondary)', margin: 0 }}>
+                  Where technology gives back time, we reinvest it into four human catalyst roles:
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div
+                    style={{
+                      padding: '0.75rem',
+                      backgroundColor: 'var(--bg-tray)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.86rem', color: 'var(--ink-primary)' }}>1. Steward</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)', margin: '0.2rem 0 0 0', lineHeight: 1.35 }}>
+                      Disciplined choices with finite resources.
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      padding: '0.75rem',
+                      backgroundColor: 'var(--bg-tray)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.86rem', color: 'var(--ink-primary)' }}>2. Connect</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)', margin: '0.2rem 0 0 0', lineHeight: 1.35 }}>
+                      Listening to those closest to the work.
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      padding: '0.75rem',
+                      backgroundColor: 'var(--bg-tray)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.86rem', color: 'var(--ink-primary)' }}>3. Amplify</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)', margin: '0.2rem 0 0 0', lineHeight: 1.35 }}>
+                      Scaling what works and lifting voices.
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      padding: '0.75rem',
+                      backgroundColor: 'var(--bg-tray)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <strong style={{ fontSize: '0.86rem', color: 'var(--ink-primary)' }}>4. Anticipate</strong>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)', margin: '0.2rem 0 0 0', lineHeight: 1.35 }}>
+                      Looking around corners together for tomorrow.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: '0.5rem',
+                paddingTop: '0.75rem',
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.4rem',
+                color: 'var(--ink-muted)',
+                fontSize: '0.78rem',
+              }}
+            >
+              <span>Eyes on presenter screen</span>
+              <span>•</span>
+              <span>Following facilitator</span>
+            </div>
+          </div>
+        </div>
+      ) : phase === 'currents_framing' ? (
+        /* =================================================================
+           CURRENTS FRAMING COMPANION VIEW
+           ================================================================= */
+        (() => {
+          const slideIdx = room?.framingSlideIndex ?? 0;
+          if (slideIdx === 0) {
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div
+                  className="card-tabletop"
+                  style={{
+                    padding: '1.25rem',
+                    borderTop: '4px solid var(--currents-teal)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.85rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <WaveIcon size={14} />
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: 'var(--currents-teal)',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        The Four Currents
+                      </span>
+                    </div>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--ink-muted)' }}>
+                      Overview
+                    </span>
+                  </div>
+
+                  <h2 style={{ fontSize: '1.4rem', margin: 0, lineHeight: 1.25 }}>
+                    Beneath the Surface
+                  </h2>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: '0.92rem',
+                      fontStyle: 'italic',
+                      color: 'var(--ink-secondary)',
+                      lineHeight: 1.45,
+                      margin: 0,
+                    }}
+                  >
+                    "Like rip currents beneath the ocean surface, four invisible dynamics pull on human connection as AI accelerates."
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    {WORKSHOP_CURRENTS.map((c) => {
+                      const meta = getCurrentMeta(c.id);
+                      return (
+                        <div
+                          key={c.id}
+                          style={{
+                            padding: '0.75rem',
+                            backgroundColor: 'var(--bg-tray)',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', fontWeight: 700, color: 'var(--currents-teal)' }}>
+                            {meta.number}
+                          </span>
+                          <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--ink-primary)', marginTop: '0.1rem' }}>
+                            {meta.title}
+                          </strong>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--ink-secondary)', fontStyle: 'italic', margin: '0.15rem 0 0 0' }}>
+                            "{meta.subtitle}"
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '0.5rem',
+                      paddingTop: '0.75rem',
+                      borderTop: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      color: 'var(--ink-muted)',
+                      fontSize: '0.78rem',
+                    }}
+                  >
+                    <span>Eyes on presenter screen</span>
+                    <span>•</span>
+                    <span>Facilitator is introducing the currents</span>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Slide 1..4: Current Detail + Connected Scenarios
+          const targetCurrentId: RithmCurrentId =
+            slideIdx === 1 ? 'current-01' : slideIdx === 2 ? 'current-02' : slideIdx === 3 ? 'current-03' : 'current-04';
+          const meta = getCurrentMeta(targetCurrentId);
+          const connectedScenarios = room ? room.scenarios.filter((s) => s.currentId === targetCurrentId) : [];
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div
+                className="card-tabletop"
+                style={{
+                  padding: '1.25rem',
+                  borderTop: '4px solid var(--currents-teal)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.85rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <WaveIcon size={14} />
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: 'var(--currents-teal)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {meta.number}
+                    </span>
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--ink-muted)' }}>
+                    Slide {slideIdx + 1} of 5
+                  </span>
+                </div>
+
+                <div>
+                  <h2 style={{ fontSize: '1.35rem', margin: '0 0 0.25rem 0', lineHeight: 1.25 }}>
+                    {meta.title}
+                  </h2>
+                  <p style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--ink-secondary)', margin: 0 }}>
+                    "{meta.subtitle}"
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    backgroundColor: 'var(--bg-tray)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.75rem',
+                    fontSize: '0.82rem',
+                    lineHeight: 1.45,
+                    borderLeft: '3px solid var(--currents-teal)',
+                  }}
+                >
+                  <strong style={{ color: 'var(--currents-teal)', display: 'block', marginBottom: '0.15rem' }}>
+                    The Rip-Current Pull:
+                  </strong>
+                  {meta.pullDescription}
+                </div>
+
+                {connectedScenarios.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        color: 'var(--ink-muted)',
+                      }}
+                    >
+                      Connected Scenarios from Part 1
+                    </span>
+                    {connectedScenarios.map((s) => {
+                      const round = room ? room.rounds[s.id] : null;
+                      const roundTally = round ? computeStanceTally(round.votes, false) : null;
+                      return (
+                        <div
+                          key={s.id}
+                          style={{
+                            padding: '0.65rem 0.75rem',
+                            backgroundColor: 'var(--bg-card-subtle)',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border-subtle)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.2rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{s.title}</span>
+                            {roundTally && roundTally.total > 0 && (
+                              <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--ink-secondary)' }}>
+                                {roundTally.support}S / {roundTally.depends}D / {roundTally.erode}E
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: '0.76rem', color: 'var(--ink-secondary)', margin: 0, lineHeight: 1.35 }}>
+                            {s.mobileSummary}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    marginTop: '0.5rem',
+                    paddingTop: '0.75rem',
+                    borderTop: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    color: 'var(--ink-muted)',
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  <span>Eyes on presenter screen</span>
+                  <span>•</span>
+                  <span>Exploring {meta.number}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()
       ) : phase === 'currents_workshop' ? (
         /* =================================================================
            INTERACTIVE CURRENTS WORKSHOP ON MOBILE
@@ -542,8 +1050,8 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
 
             <p style={{ fontSize: '0.76rem', color: 'var(--ink-secondary)', margin: 0, fontStyle: 'italic' }}>
               {workshopProposalType === 'protect'
-                ? 'Human ritual or boundary we fiercely protect against AI erosion.'
-                : 'Routine task or grind we gladly delegate to AI to unlock human connection.'}
+                ? 'Protect the human core: human rituals, empathy, and judgment we protect against AI erosion.'
+                : 'Reinvest time: routine administration and synthesis we delegate to AI to unlock human connection.'}
             </p>
 
             <form onSubmit={handleProposalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
@@ -966,37 +1474,6 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-
-              {/* Compact 1-line Current Title Chip */}
-              {currentMeta && (
-                <div
-                  className="badge-current"
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    width: '100%',
-                    borderRadius: 'var(--radius-md)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <WaveIcon size={14} />
-                    <span style={{ fontWeight: 600, fontSize: '0.82rem' }}>
-                      {currentMeta.number}: {currentMeta.title}
-                    </span>
-                  </div>
-                  <a
-                    href={currentMeta.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: '0.74rem', color: 'var(--currents-teal)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
-                  >
-                    <span>Guide</span>
-                    <ExternalLinkIcon size={10} />
-                  </a>
                 </div>
               )}
             </div>

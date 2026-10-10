@@ -4,7 +4,14 @@ export type ScenarioCategory = 'coworkers' | 'grantees' | 'community' | 'life';
 
 export type RithmCurrentId = 'current-01' | 'current-02' | 'current-03' | 'current-04';
 
-export type RoomPhase = 'lobby' | 'voting' | 'revealed' | 'twist' | 'currents_workshop';
+export type RoomPhase =
+  | 'lobby'
+  | 'opening_framing'
+  | 'voting'
+  | 'revealed'
+  | 'twist'
+  | 'currents_framing'
+  | 'currents_workshop';
 
 export type DeckPresetId = 'spark-8' | 'current-04-focus' | 'full-20' | 'custom';
 
@@ -95,6 +102,7 @@ export interface RoomState {
   participants: Record<string, Participant>;
   rounds: Record<string, ScenarioRoundRecord>;
   currentCommitments: Record<RithmCurrentId, string>; // Facilitator-captured team norms per Current
+  framingSlideIndex?: number;
   workshopStage?: WorkshopStage;
   workshopProposals?: Record<string, WorkshopProposal>;
 }
