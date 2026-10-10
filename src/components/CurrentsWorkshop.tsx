@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { computeCurrentsSynthesis, formatWorkshopMarkdown } from '../state/roomEngine';
 import { RithmCurrentId, RoomState } from '../types/game';
+import { CheckIcon, CopyIcon, ExternalLinkIcon, SparkIcon } from './Icons';
 
 export interface CurrentsWorkshopProps {
   room: RoomState;
@@ -112,9 +113,10 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
               href="https://aicurrents.therithmproject.org/"
               target="_blank"
               rel="noreferrer"
-              style={{ fontSize: '0.82rem', color: 'var(--currents-teal)' }}
+              style={{ fontSize: '0.82rem', color: 'var(--currents-teal)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
             >
-              The Four Currents Framework ↗
+              <span>The Four Currents Framework</span>
+              <ExternalLinkIcon size={12} />
             </a>
           </div>
           <h1 style={{ fontSize: '1.9rem', marginBottom: '0.5rem' }}>
@@ -141,9 +143,19 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
             id="copy-workshop-markdown-btn"
             onClick={handleCopyMarkdown}
             className="btn-primary"
-            style={{ minWidth: '180px' }}
+            style={{ minWidth: '180px', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            {copied ? '✓ Copied to Clipboard!' : '📋 Copy Summary (Markdown)'}
+            {copied ? (
+              <>
+                <CheckIcon size={16} />
+                <span>Copied to Clipboard!</span>
+              </>
+            ) : (
+              <>
+                <CopyIcon size={16} />
+                <span>Copy Summary (Markdown)</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -210,9 +222,10 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
                     href={current.url}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ fontSize: '0.78rem' }}
+                    style={{ fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
                   >
-                    Current Guide ↗
+                    <span>Current Guide</span>
+                    <ExternalLinkIcon size={11} />
                   </a>
                 </div>
                 <h3 style={{ fontSize: '1.35rem', marginBottom: '0.35rem' }}>{current.title}</h3>
@@ -303,8 +316,9 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
                         </div>
 
                         {item.delta.shiftedCount > 0 && (
-                          <div style={{ fontSize: '0.74rem', color: 'var(--stance-depends-text)', fontWeight: 600 }}>
-                            ⚡ {item.delta.shiftedCount} shifted on "What If?" twist
+                          <div style={{ fontSize: '0.74rem', color: 'var(--stance-depends-text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <SparkIcon size={12} />
+                            <span>{item.delta.shiftedCount} shifted on "What If?" twist</span>
                           </div>
                         )}
                       </div>

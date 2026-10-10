@@ -5,6 +5,7 @@ import { CATEGORY_META, STANCE_LIST, STANCE_META } from '../content/scenarios';
 import { computeStanceTally, generateAlliterativeAnimalName } from '../state/roomEngine';
 import { ClientRoomChannel } from '../utils/roomSync';
 import { RithmCurrentId, RoomState, Stance } from '../types/game';
+import { CheckIcon, ExternalLinkIcon, PencilIcon, SparkIcon } from '../components/Icons';
 
 export interface ParticipantViewProps {
   room: RoomState | null;
@@ -230,7 +231,7 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
               title="Click to change your name"
             >
               <span>{userName}</span>
-              <span style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>✎</span>
+              <PencilIcon size={12} style={{ color: 'var(--ink-muted)' }} />
             </button>
           )}
         </div>
@@ -354,8 +355,8 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--currents-teal)' }}>
                       {meta.number}
                     </span>
-                    <a href={meta.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem' }}>
-                      Guide ↗
+                    <a href={meta.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      Guide <ExternalLinkIcon size={11} />
                     </a>
                   </div>
                   <h4 style={{ fontSize: '1.05rem', margin: 0 }}>{meta.title}</h4>
@@ -452,7 +453,7 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
           {isTwist && currentScenario && (
             <div className="twist-banner animate-pebble-drop">
               <div className="twist-banner-title">
-                <span>⚡</span>
+                <SparkIcon size={16} />
                 <span>Context Shift ("What If?")</span>
               </div>
               <div className="twist-banner-body" style={{ fontSize: '1rem', marginBottom: '0.4rem' }}>
@@ -495,9 +496,12 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                           backgroundColor: 'rgba(255, 255, 255, 0.25)',
                           padding: '0.15rem 0.5rem',
                           borderRadius: 'var(--radius-full)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
                         }}
                       >
-                        ✓ Placed
+                        <CheckIcon size={12} /> Placed
                       </span>
                     )}
                   </div>
@@ -615,9 +619,13 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                       textTransform: 'uppercase',
                       letterSpacing: '0.03em',
                       color: activeStance ? 'var(--stance-support-text)' : 'var(--stance-depends-text)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
                     }}
                   >
-                    {activeStance ? '✓ Shared with the room' : '✓ Saved — tap a stance above to send'}
+                    <CheckIcon size={12} />
+                    <span>{activeStance ? 'Shared with the room' : 'Saved — tap a stance above to send'}</span>
                   </span>
                   <button
                     id="edit-vote-note-btn"
@@ -629,8 +637,8 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                       color: 'var(--ink-secondary)',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.25rem',
-                      padding: '0.15rem 0.45rem',
+                      gap: '0.3rem',
+                      padding: '0.15rem 0.5rem',
                       borderRadius: 'var(--radius-sm)',
                       backgroundColor: 'var(--bg-card)',
                       border: '1px solid var(--border-subtle)',
@@ -638,7 +646,7 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                     title="Edit your 1-line thought"
                   >
                     <span>Edit</span>
-                    <span style={{ fontSize: '0.72rem' }}>✎</span>
+                    <PencilIcon size={12} />
                   </button>
                 </div>
                 <div
@@ -701,8 +709,8 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--currents-teal)' }}>
                       {currentMeta.number}
                     </span>
-                    <a href={currentMeta.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem' }}>
-                      Learn More ↗
+                    <a href={currentMeta.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      Learn More <ExternalLinkIcon size={11} />
                     </a>
                   </div>
                   <h4 style={{ fontSize: '1.05rem', margin: 0, marginBottom: '0.25rem' }}>

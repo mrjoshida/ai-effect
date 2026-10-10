@@ -3,6 +3,7 @@ import { Pebble } from '../components/Pebble';
 import { RITHM_CURRENTS_LIST } from '../content/currents';
 import { CATEGORY_LIST } from '../content/scenarios';
 import { DeckPresetId, ScenarioCategory } from '../types/game';
+import { ExternalLinkIcon, PhoneIcon, ScreenIcon, WaveIcon } from '../components/Icons';
 
 export interface LandingViewProps {
   onJoinRoom: (code: string, name?: string) => void;
@@ -90,18 +91,20 @@ export const LandingView: React.FC<LandingViewProps> = ({
             href="https://www.therithmproject.org/the-ai-effect"
             target="_blank"
             rel="noreferrer"
-            style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)' }}
+            style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
           >
-            The Rithm Project ↗
+            <span>The Rithm Project</span>
+            <ExternalLinkIcon size={11} />
           </a>
           <span style={{ color: 'var(--border-strong)' }}>•</span>
           <a
             href="https://aicurrents.therithmproject.org/"
             target="_blank"
             rel="noreferrer"
-            style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)' }}
+            style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
           >
-            The Four Currents ↗
+            <span>The Four Currents</span>
+            <ExternalLinkIcon size={11} />
           </a>
         </div>
 
@@ -136,7 +139,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '1.25rem' }}>📱</span>
+              <PhoneIcon size={20} style={{ color: 'var(--stance-support-accent)' }} />
               <h2 style={{ fontSize: '1.45rem' }}>Join a Session</h2>
             </div>
             <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)', marginBottom: '1.5rem' }}>
@@ -251,7 +254,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '1.25rem' }}>🖥️</span>
+              <ScreenIcon size={20} style={{ color: 'var(--currents-teal)' }} />
               <h2 style={{ fontSize: '1.45rem' }}>Facilitate a Session</h2>
             </div>
             <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)', marginBottom: '1.25rem' }}>
@@ -374,9 +377,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
               id="open-currents-guide-btn"
               onClick={() => setShowCurrentsGuide(!showCurrentsGuide)}
               className="btn-ghost"
-              style={{ width: '100%', justifyContent: 'center', fontSize: '0.86rem', color: 'var(--currents-teal)' }}
+              style={{ width: '100%', justifyContent: 'center', fontSize: '0.86rem', color: 'var(--currents-teal)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              🌊 {showCurrentsGuide ? 'Hide Four Currents Guide' : 'Explore The Four Currents Framework'}
+              <WaveIcon size={16} />
+              <span>{showCurrentsGuide ? 'Hide Four Currents Guide' : 'Explore The Four Currents Framework'}</span>
             </button>
           </div>
         </div>
@@ -453,8 +457,14 @@ export const LandingView: React.FC<LandingViewProps> = ({
                   "{c.subtitle}"
                 </p>
                 <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
-                  <a href={c.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.76rem' }}>
-                    Read Research ↗
+                  <a
+                    href={c.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
+                  >
+                    <span>Read Research</span>
+                    <ExternalLinkIcon size={11} />
                   </a>
                 </div>
               </div>
@@ -485,18 +495,20 @@ export const LandingView: React.FC<LandingViewProps> = ({
             href="https://www.therithmproject.org/the-ai-effect"
             target="_blank"
             rel="noreferrer"
-            style={{ fontWeight: 600 }}
+            style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
           >
-            The AI Effect ↗
+            <span>The AI Effect</span>
+            <ExternalLinkIcon size={11} />
           </a>{' '}
           and{' '}
           <a
             href="https://aicurrents.therithmproject.org/"
             target="_blank"
             rel="noreferrer"
-            style={{ fontWeight: 600 }}
+            style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
           >
-            The Four Currents ↗
+            <span>The Four Currents</span>
+            <ExternalLinkIcon size={11} />
           </a>{' '}
           by{' '}
           <a
