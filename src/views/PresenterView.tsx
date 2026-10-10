@@ -1,26 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { CurrentsWorkshop } from '../components/CurrentsWorkshop';
-import { MobilePreviewDrawer } from '../components/MobilePreviewDrawer';
 import { Pebble } from '../components/Pebble';
 import { ResponseGraph } from '../components/ResponseGraph';
 import { getCurrentMeta } from '../content/currents';
-import { CATEGORY_LIST, CATEGORY_META } from '../content/scenarios';
+import { CATEGORY_META } from '../content/scenarios';
 import {
-  addCustomScenario,
   navigateToScenario,
   saveHostRoomState,
   setRoomPhase,
-  simulateTeamVotesForCurrentScenario,
+  setWorkshopStage,
+  toggleProposalEndorsement,
   triggerScenarioTwist,
   updateCurrentCommitment,
 } from '../state/roomEngine';
 import { buildJoinUrl, generateJoinQrSvg } from '../utils/qrCode';
 import { HostRoomChannel } from '../utils/roomSync';
-import { RithmCurrentId, RoomState, ScenarioCard, ScenarioCategory } from '../types/game';
+import { RoomState, ScenarioCard } from '../types/game';
 import {
-  DiceIcon,
+  CloseIcon,
   ExternalLinkIcon,
-  PhoneIcon,
   QrIcon,
   SparkIcon,
   UsersIcon,
@@ -42,17 +40,6 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
 }) => {
   const [qrSvg, setQrSvg] = useState<string>('');
   const [showQrModal, setShowQrModal] = useState(false);
-  const [showMobilePreview, setShowMobilePreview] = useState(false);
-  const [showCustomModal, setShowCustomModal] = useState(false);
-
-  // Custom scenario form state
-  const [customTitle, setCustomTitle] = useState('');
-  const [customCategory, setCustomCategory] = useState<ScenarioCategory>('coworkers');
-  const [customCurrentId, setCustomCurrentId] = useState<RithmCurrentId>('current-04');
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [customMobileSummary, setCustomMobileSummary] = useState('');
-  const [customTwist, setCustomTwist] = useState('');
-  const [customDiscussion, setCustomDiscussion] = useState('');
 
   // Generate QR code SVG whenever room code changes
   useEffect(() => {
@@ -100,14 +87,23 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
         advanceLogicalStep();
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
-        if (room.phase !== 'lobby' && room.phase !== 'currents_workshop') {
-          handleNextScenario();
-        }
+        handleNextScenario();
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault();
-        if (room.phase !== 'lobby' && room.phase !== 'currents_workshop') {
-          handlePrevScenario();
+        handlePrevScenario();
+      } else if (e.code === 'KeyT') {
+        e.preventDefault();
+        if (room.phase === 'revealed' && !twistActive) {
+          const next = triggerScenarioTwist(room);
+          updateRoomState(next);
         }
+      } else if (e.code === 'KeyW') {
+        e.preventDefault();
+        const next = setRoomPhase(
+          room,
+          room.phase === 'currents_workshop' ? 'revealed' : 'currents_workshop'
+        );
+        updateRoomState(next);
       }
     };
 
@@ -117,19 +113,15 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
 
   const advanceLogicalStep = () => {
     if (room.phase === 'lobby') {
-      const next = navigateToScenario(room, 0);
+      const next = setRoomPhase(room, 'voting');
       updateRoomState(next);
     } else if (room.phase === 'voting') {
       const next = setRoomPhase(room, 'revealed');
       updateRoomState(next);
-    } else if (room.phase === 'revealed') {
-      if (!currentRound?.twistTriggered) {
-        const next = triggerScenarioTwist(room);
-        updateRoomState(next);
-      } else {
-        handleNextScenario();
-      }
-    } else if (room.phase === 'twist') {
+    } else if (room.phase === 'revealed' && !twistActive) {
+      const next = triggerScenarioTwist(room);
+      updateRoomState(next);
+    } else if (room.phase === 'revealed' || room.phase === 'twist') {
       handleNextScenario();
     }
   };
@@ -151,40 +143,9 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
     }
   };
 
-  const handleSimulateVotes = () => {
-    const next = simulateTeamVotesForCurrentScenario(room, 10);
-    updateRoomState(next);
-  };
-
-  const handleCreateCustomScenario = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customTitle.trim() || !customPrompt.trim()) return;
-
-    const newCard: Omit<ScenarioCard, 'id'> = {
-      title: customTitle.trim(),
-      category: customCategory,
-      currentId: customCurrentId,
-      prompt: customPrompt.trim(),
-      mobileSummary: customMobileSummary.trim() || customTitle.trim(),
-      twist: customTwist.trim() || 'What if the context shifts unexpectedly?',
-      discussionQuestion: customDiscussion.trim() || 'How does this shape human connection?',
-    };
-
-    const next = addCustomScenario(room, newCard);
-    updateRoomState(next);
-    setShowCustomModal(false);
-    // Reset form
-    setCustomTitle('');
-    setCustomPrompt('');
-    setCustomMobileSummary('');
-    setCustomTwist('');
-    setCustomDiscussion('');
-  };
-
-  const connectionStatus = channel.getStatus();
+  const categoryMeta = currentCard ? CATEGORY_META[currentCard.category] : undefined;
+  const currentMeta = currentCard ? getCurrentMeta(currentCard.currentId) : undefined;
   const joinUrl = buildJoinUrl(room.code);
-  const categoryMeta = currentCard ? CATEGORY_META[currentCard.category] : null;
-  const currentMeta = currentCard ? getCurrentMeta(currentCard.currentId) : null;
 
   return (
     <div
@@ -196,7 +157,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
         backgroundColor: 'var(--bg-canvas)',
       }}
     >
-      {/* 1. Global Facilitator Top Bar */}
+      {/* 1. Header */}
       <header
         style={{
           height: 'var(--header-height)',
@@ -225,6 +186,10 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               fontSize: '1.2rem',
               fontWeight: 700,
               color: 'var(--ink-primary)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
             }}
             title="Return to main menu"
           >
@@ -235,7 +200,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
             <span
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '1rem',
+                fontSize: '0.95rem',
                 fontWeight: 700,
                 backgroundColor: 'var(--bg-tray)',
                 border: '1px solid var(--border-default)',
@@ -260,9 +225,8 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
           </div>
         </div>
 
-        {/* Right: Facilitator Controls & Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          {/* Participant count */}
+        {/* Right: Participants count, Workshop toggle & Exit */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span
             style={{
               fontFamily: 'var(--font-mono)',
@@ -271,79 +235,38 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               backgroundColor: 'var(--bg-tray)',
               padding: '0.3rem 0.65rem',
               borderRadius: 'var(--radius-full)',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '0.4rem',
             }}
           >
             <UsersIcon size={14} />
-            <span>{totalParticipants} {totalParticipants === 1 ? 'player' : 'players'}</span>
+            <span>{totalParticipants} joined</span>
           </span>
-
-          {/* Connection status pill */}
-          <span
-            style={{
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              color: connectionStatus === 'connected' ? 'var(--stance-support-text)' : 'var(--stance-depends-text)',
-            }}
-          >
-            <span
-              style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: connectionStatus === 'connected' ? 'var(--stance-support-accent)' : 'var(--stance-depends-accent)',
-              }}
-            />
-            <span>{connectionStatus === 'connected' ? 'Live Relay' : 'Local Only'}</span>
-          </span>
-
-          {/* Facilitator actions */}
-          <button
-            id="simulate-votes-btn"
-            onClick={handleSimulateVotes}
-            className="btn-secondary"
-            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-            title="Populate test votes from simulated team members"
-          >
-            <DiceIcon size={14} /> Simulate Votes
-          </button>
-
-          <button
-            id="toggle-mobile-preview-btn"
-            onClick={() => setShowMobilePreview(!showMobilePreview)}
-            className="btn-secondary"
-            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-            title="Open side-by-side mobile phone preview"
-          >
-            <PhoneIcon size={14} /> Mobile Preview
-          </button>
-
-          <button
-            id="add-custom-scenario-btn"
-            onClick={() => setShowCustomModal(true)}
-            className="btn-secondary"
-            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}
-            title="Create a custom scenario card for this session"
-          >
-            + Custom Card
-          </button>
 
           <button
             id="open-workshop-btn"
             onClick={() => {
-              const next = setRoomPhase(room, 'currents_workshop');
+              const next = setRoomPhase(
+                room,
+                room.phase === 'currents_workshop' ? 'revealed' : 'currents_workshop'
+              );
               updateRoomState(next);
             }}
             className={room.phase === 'currents_workshop' ? 'btn-primary' : 'btn-secondary'}
             style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-            title="Open the Four Currents Workshop synthesis"
+            title="Toggle the Four Currents Workshop synthesis"
           >
-            <WaveIcon size={14} /> Currents Workshop
+            <WaveIcon size={14} /> Four Currents Workshop
+          </button>
+
+          <button
+            onClick={onExit}
+            className="btn-secondary"
+            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem' }}
+            title="Exit session"
+          >
+            Exit
           </button>
         </div>
       </header>
@@ -413,7 +336,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '3.2rem',
+                    fontSize: '3.4rem',
                     fontWeight: 800,
                     letterSpacing: '0.18em',
                     color: 'var(--ink-primary)',
@@ -422,14 +345,6 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 >
                   {room.code}
                 </span>
-                <a
-                  href={joinUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ fontSize: '0.88rem', wordBreak: 'break-all', marginTop: '0.25rem' }}
-                >
-                  {joinUrl}
-                </a>
               </div>
             </div>
 
@@ -444,31 +359,25 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 justifyContent: 'space-between',
               }}
             >
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.5rem' }}>
-                  <h2 style={{ fontSize: '2rem' }}>The Workshop Table</h2>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '1rem',
-                      fontWeight: 700,
-                      color: 'var(--ink-secondary)',
-                    }}
-                  >
-                    {totalParticipants} Joined
-                  </span>
-                </div>
-                <p style={{ fontSize: '1rem', color: 'var(--ink-secondary)', lineHeight: 1.45 }}>
-                  Each participant receives a unique tactile river stone. As colleagues scan the QR code and take
-                  their seat, their pebbles appear in the sand well below.
-                </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <h2 style={{ fontSize: '2rem' }}>The Workshop Table</h2>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    color: 'var(--ink-secondary)',
+                  }}
+                >
+                  {totalParticipants} Joined
+                </span>
               </div>
 
               {/* Sandstone Pebble Well */}
               <div
                 className="tray-sandstone"
                 style={{
-                  minHeight: '190px',
+                  minHeight: '220px',
                   display: 'flex',
                   flexWrap: 'wrap',
                   gap: '1rem',
@@ -502,27 +411,26 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '0.3rem',
+                        gap: '0.35rem',
                       }}
+                      className="animate-pebble-drop"
                     >
                       <Pebble
                         variant={p.pebbleVariant}
                         stance="neutral"
                         size="md"
                         label={p.name.slice(0, 2).toUpperCase()}
-                        className="animate-pebble-drop"
                       />
                       <span
                         style={{
                           fontSize: '0.78rem',
-                          fontFamily: 'var(--font-sans)',
-                          fontWeight: 600,
-                          color: 'var(--ink-primary)',
-                          maxWidth: '70px',
+                          fontFamily: 'var(--font-mono)',
+                          color: 'var(--ink-secondary)',
+                          maxWidth: '90px',
+                          textAlign: 'center',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
-                          textAlign: 'center',
                         }}
                       >
                         {p.name}
@@ -532,18 +440,22 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 )}
               </div>
 
-              {/* Begin Session Button */}
+              {/* Begin Session Action */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--ink-muted)' }}>
-                  Press <kbd style={{ padding: '0.15rem 0.4rem', border: '1px solid var(--border-default)', borderRadius: '3px' }}>Space</kbd> to begin
-                </span>
                 <button
                   id="begin-session-btn"
-                  onClick={advanceLogicalStep}
+                  onClick={() => {
+                    const next = setRoomPhase(room, 'voting');
+                    updateRoomState(next);
+                  }}
                   className="btn-primary"
-                  style={{ padding: '0.9rem 1.6rem', fontSize: '1.05rem' }}
+                  style={{
+                    padding: '0.95rem 1.85rem',
+                    fontSize: '1.05rem',
+                    backgroundColor: 'var(--stance-support)',
+                  }}
                 >
-                  Begin Scenario 1 →
+                  Begin First Scenario →
                 </button>
               </div>
             </div>
@@ -554,6 +466,14 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
              ================================================================= */
           <CurrentsWorkshop
             room={room}
+            onSetWorkshopStage={(stage) => {
+              const next = setWorkshopStage(room, stage);
+              updateRoomState(next);
+            }}
+            onToggleEndorsement={(proposalId) => {
+              const next = toggleProposalEndorsement(room, 'host', proposalId);
+              updateRoomState(next);
+            }}
             onUpdateCommitment={(cid, text) => {
               const next = updateCurrentCommitment(room, cid, text);
               updateRoomState(next);
@@ -567,8 +487,8 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
           /* =================================================================
              GAMEPLAY STAGE: Voting, Revealed & "What If?" Twist
              ================================================================= */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-            {/* Stage Header: Category Pill, Card Counter, Prev/Next Navigation */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Stage Header: Category Pill, Card Counter, Prev Navigation */}
             <div
               style={{
                 display: 'flex',
@@ -596,7 +516,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div>
                 <button
                   id="prev-scenario-btn"
                   onClick={handlePrevScenario}
@@ -610,16 +530,6 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                   title="Previous scenario (Left Arrow)"
                 >
                   ← Prev
-                </button>
-
-                <button
-                  id="next-scenario-btn"
-                  onClick={handleNextScenario}
-                  className="btn-secondary"
-                  style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem' }}
-                  title="Next scenario (Right Arrow)"
-                >
-                  {isLastCard ? 'Workshop Finale →' : 'Next Scenario →'}
                 </button>
               </div>
             </div>
@@ -674,7 +584,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                   <div className="twist-banner animate-pebble-drop" style={{ marginTop: '0.5rem' }}>
                     <div className="twist-banner-title">
                       <SparkIcon size={16} />
-                      <span>The "What If?" Context Shift</span>
+                      <span>What if?</span>
                     </div>
                     <div className="twist-banner-body">
                       {currentCard.twist}
@@ -698,15 +608,15 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 }}
               >
                 <div>
-                  <h3 style={{ fontSize: '1.45rem', marginBottom: '0.4rem' }}>
-                    Voting in Progress
+                  <h3 style={{ fontSize: '1.45rem', marginBottom: '0.35rem' }}>
+                    Pebbles are Being Placed...
                   </h3>
-                  <p style={{ fontSize: '0.95rem', color: 'var(--ink-secondary)' }}>
-                    Cast your stance on your phone. You can hold or change your vote until revealed.
+                  <p style={{ color: 'var(--ink-secondary)', fontSize: '0.95rem' }}>
+                    Participants are reading the scenario on their phones and casting their stance: Supports, It Depends, or Erodes.
                   </p>
                 </div>
 
-                {/* Unrevealed Pebble Basin */}
+                {/* Live Anonymous Pebble Tray */}
                 <div
                   className="tray-sandstone"
                   style={{
@@ -722,19 +632,24 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 >
                   {currentVotesCount === 0 ? (
                     <span style={{ fontSize: '0.85rem', color: 'var(--ink-muted)', fontStyle: 'italic' }}>
-                      Waiting for initial votes to land...
+                      Waiting for initial votes from the room...
                     </span>
                   ) : (
-                    Array.from({ length: currentVotesCount }).map((_, idx) => (
-                      <Pebble
-                        key={idx}
-                        variant={idx % 5}
-                        stance="neutral"
-                        size="md"
-                        label="?"
-                        className="animate-pebble-drop"
-                      />
-                    ))
+                    currentRound &&
+                    Object.values(currentRound.votes).map((vote, idx) => {
+                      const participant = room.participants[vote.clientId];
+                      return (
+                        <Pebble
+                          key={vote.clientId || idx}
+                          variant={participant?.pebbleVariant ?? (idx % 5)}
+                          stance="neutral"
+                          size="md"
+                          className="animate-pebble-drop"
+                          label={participant ? participant.name.slice(0, 2).toUpperCase() : `P${idx + 1}`}
+                          title={`${participant?.name || 'Voter'} placed their stone`}
+                        />
+                      );
+                    })
                   )}
                 </div>
 
@@ -757,8 +672,8 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 </div>
               </div>
             ) : (
-              /* Response Graph & Discussion Question */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              /* Response Graph & Compact Facilitator Discussion Bar */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {/* 3 Stance Columns Graph */}
                 <div className="card-tabletop">
                   <ResponseGraph
@@ -768,69 +683,72 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                   />
                 </div>
 
-                {/* Facilitator Discussion Question & Actions */}
+                {/* Compact Integrated Facilitator Discussion Bar */}
                 {currentCard && (
                   <div
                     className="card-tabletop"
                     style={{
-                      borderLeft: '5px solid var(--stance-support)',
+                      borderLeft: '4px solid var(--stance-support)',
+                      padding: '1.25rem 1.5rem',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '1rem',
+                      gap: '0.85rem',
                     }}
                   >
-                    <div>
-                      <span
-                        style={{
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          color: 'var(--stance-support)',
-                        }}
-                      >
-                        Facilitator Discussion Prompt
-                      </span>
-                      <h3 style={{ fontSize: '1.35rem', marginTop: '0.25rem' }}>
-                        {currentCard.discussionQuestion}
-                      </h3>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.85rem' }}>
-                      {!twistActive ? (
-                        <button
-                          id="trigger-twist-btn"
-                          onClick={() => {
-                            const next = triggerScenarioTwist(room);
-                            updateRoomState(next);
-                          }}
-                          className="btn-primary"
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1.25rem', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: '300px' }}>
+                        <span
                           style={{
-                            backgroundColor: 'var(--stance-depends)',
-                            padding: '0.75rem 1.4rem',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.4rem',
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            color: 'var(--stance-support-text)',
                           }}
                         >
-                          <SparkIcon size={15} />
-                          <span>Reveal "What If?" Twist →</span>
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: '0.85rem', color: 'var(--stance-depends-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <SparkIcon size={15} />
-                          <span>"What If?" Twist Active — Voters can shift stances in real time!</span>
+                          Facilitator Discussion Prompt
                         </span>
-                      )}
+                        <h3 style={{ fontSize: '1.2rem', marginTop: '0.25rem', lineHeight: 1.35 }}>
+                          {currentCard.discussionQuestion}
+                        </h3>
+                      </div>
 
-                      <button
-                        id="advance-scenario-btn"
-                        onClick={handleNextScenario}
-                        className="btn-primary"
-                        style={{ padding: '0.75rem 1.4rem' }}
-                      >
-                        {isLastCard ? 'Open Four Currents Workshop →' : 'Next Scenario →'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {!twistActive ? (
+                          <button
+                            id="trigger-twist-btn"
+                            onClick={() => {
+                              const next = triggerScenarioTwist(room);
+                              updateRoomState(next);
+                            }}
+                            className="btn-primary"
+                            style={{
+                              backgroundColor: 'var(--stance-depends)',
+                              padding: '0.7rem 1.25rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                            }}
+                          >
+                            <SparkIcon size={15} />
+                            <span>What if?</span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.85rem', color: 'var(--stance-depends-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <SparkIcon size={15} />
+                            <span>"What if?" Active</span>
+                          </span>
+                        )}
+
+                        <button
+                          id="advance-scenario-btn"
+                          onClick={handleNextScenario}
+                          className="btn-primary"
+                          style={{ padding: '0.7rem 1.3rem' }}
+                        >
+                          {isLastCard ? 'Open Four Currents Workshop →' : 'Next Scenario →'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -840,14 +758,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
         )}
       </main>
 
-      {/* 3. Floating Mobile Preview Drawer */}
-      <MobilePreviewDrawer
-        room={room}
-        isOpen={showMobilePreview}
-        onClose={() => setShowMobilePreview(false)}
-      />
-
-      {/* 4. Popover / Modal for Latecomer QR Code */}
+      {/* 3. Popover / Modal for Latecomer QR Code */}
       {showQrModal && (
         <div
           style={{
@@ -884,11 +795,14 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 position: 'absolute',
                 top: '1rem',
                 right: '1rem',
-                fontSize: '1.1rem',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
                 color: 'var(--ink-muted)',
               }}
+              title="Close QR modal"
             >
-              ✕
+              <CloseIcon size={16} />
             </button>
 
             <span style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--currents-teal)' }}>
@@ -915,207 +829,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '2.4rem', fontWeight: 800, letterSpacing: '0.15em' }}>
                 {room.code}
               </span>
-              <p style={{ fontSize: '0.82rem', marginTop: '0.35rem' }}>{joinUrl}</p>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Custom Scenario Creation Modal */}
-      {showCustomModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(31, 28, 24, 0.6)',
-            backdropFilter: 'blur(3px)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem',
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowCustomModal(false);
-          }}
-        >
-          <div
-            className="card-tabletop"
-            style={{
-              maxWidth: '600px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.25rem',
-              position: 'relative',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '1.4rem' }}>Add Custom Scenario Card</h2>
-              <button
-                onClick={() => setShowCustomModal(false)}
-                style={{ fontSize: '1.1rem', color: 'var(--ink-muted)' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateCustomScenario} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                  Scenario Title
-                </label>
-                <input
-                  type="text"
-                  value={customTitle}
-                  onChange={(e) => setCustomTitle(e.target.value)}
-                  placeholder="e.g. The Board Presentation Co-Pilot"
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.8rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-default)',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                    Domain Category
-                  </label>
-                  <select
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value as ScenarioCategory)}
-                    style={{
-                      width: '100%',
-                      padding: '0.6rem 0.8rem',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-default)',
-                      backgroundColor: '#FFFDF9',
-                    }}
-                  >
-                    {CATEGORY_LIST.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                    Rithm Current
-                  </label>
-                  <select
-                    value={customCurrentId}
-                    onChange={(e) => setCustomCurrentId(e.target.value as RithmCurrentId)}
-                    style={{
-                      width: '100%',
-                      padding: '0.6rem 0.8rem',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border-default)',
-                      backgroundColor: '#FFFDF9',
-                    }}
-                  >
-                    <option value="current-01">Current 01: Our sense of trust</option>
-                    <option value="current-02">Current 02: Relationships with AI</option>
-                    <option value="current-03">Current 03: Our inner voice</option>
-                    <option value="current-04">Current 04: Acting for us</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                  Mobile Summary (1 crisp dilemma sentence)
-                </label>
-                <input
-                  type="text"
-                  value={customMobileSummary}
-                  onChange={(e) => setCustomMobileSummary(e.target.value)}
-                  placeholder="e.g. Using AI to draft the board remarks on behalf of the foundation."
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.8rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-default)',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                  Full Prompt Narrative (Presenter Screen)
-                </label>
-                <textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder="Describe the real-world dilemma..."
-                  rows={3}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.8rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-default)',
-                    fontFamily: 'var(--font-serif)',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                  "What If?" Twist (Context Modifier)
-                </label>
-                <textarea
-                  value={customTwist}
-                  onChange={(e) => setCustomTwist(e.target.value)}
-                  placeholder="What if a key contextual condition changes?"
-                  rows={2}
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.8rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-default)',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.3rem' }}>
-                  Facilitator Discussion Question
-                </label>
-                <input
-                  type="text"
-                  value={customDiscussion}
-                  onChange={(e) => setCustomDiscussion(e.target.value)}
-                  placeholder="e.g. Where does synthetic polish cross into inauthenticity?"
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.8rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-default)',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowCustomModal(false)}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  Add to Active Deck
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

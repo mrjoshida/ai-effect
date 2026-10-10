@@ -462,6 +462,47 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   border: 1px solid var(--border-default);
 }
 
+/* Workshop Proposal Badges & Cards */
+.badge-proposal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-full);
+  font-size: 0.74rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge-proposal.protect {
+  background-color: var(--stance-support-tint);
+  color: var(--stance-support-text);
+  border: 1px solid var(--stance-support-border);
+}
+.badge-proposal.automate {
+  background-color: var(--currents-teal-tint);
+  color: var(--currents-teal);
+  border: 1px solid var(--currents-teal-border);
+}
+
+.workshop-proposal-card {
+  background-color: var(--bg-card);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-sm);
+}
+.workshop-proposal-card.ratified {
+  border-color: var(--currents-teal);
+  border-left-width: 4px;
+  background: linear-gradient(135deg, #FFFDF9 0%, var(--currents-teal-tint) 100%);
+  box-shadow: 0 4px 14px rgba(15, 62, 72, 0.12);
+}
+
 /* Card & Tray Containers */
 .card-tabletop {
   background-color: var(--bg-card);

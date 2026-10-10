@@ -45,7 +45,7 @@ describe('Room Synchronization & QR Code', () => {
     });
   });
 
-  describe('Host ↔ Client Channel Synchronization', () => {
+  describe('Host and Client Channel Synchronization', () => {
     it('syncs initial state from Host to Client upon client connection', () => {
       const code = 'SYNC1';
       const initialState = createRoomState(PHILANTHROPY_SCENARIOS.slice(0, 2), code);
@@ -260,6 +260,61 @@ describe('Room Synchronization & QR Code', () => {
       const nextScenarioId = hostRoomState.scenarios[1].id;
       // New scenario has no votes yet
       expect(getClientState().rounds[nextScenarioId]?.votes[previewClientId]).toBeUndefined();
+    });
+
+    it('relays sendProposal and sendToggleEndorsement between Client and Host', () => {
+      const code = 'PROPOSAL_SYNC';
+      let hostRoomState = createRoomState(PHILANTHROPY_SCENARIOS.slice(0, 2), code);
+
+      let hostChannel: HostRoomChannel;
+      hostChannel = createHostChannel(code, hostRoomState, (inboundMsg) => {
+        hostRoomState = applyInboundMessage(hostRoomState, inboundMsg);
+        hostChannel.publishState(hostRoomState);
+      });
+      activeChannels.push(hostChannel);
+
+      let clientRoomState: RoomState | undefined = undefined;
+      const clientChannel = createClientChannel(
+        code,
+        'client-props',
+        (updated) => {
+          clientRoomState = updated;
+        }
+      );
+      activeChannels.push(clientChannel);
+
+      // Join client
+      clientChannel.sendJoin('Kindly Koala');
+
+      // Submit proposal
+      clientChannel.sendProposal(
+        'current-01',
+        'protect',
+        'Handwrite milestone congratulations'
+      );
+
+      expect(clientRoomState).toBeDefined();
+      const proposals = Object.values(clientRoomState!.workshopProposals || {});
+      expect(proposals).toHaveLength(1);
+      const prop = proposals[0];
+      expect(prop.text).toBe('Handwrite milestone congratulations');
+      expect(prop.type).toBe('protect');
+      expect(prop.currentId).toBe('current-01');
+      expect(prop.endorsements).toEqual([]);
+
+      // Second client endorses proposal
+      let client2State: RoomState | undefined = undefined;
+      const client2 = createClientChannel(code, 'client-endorser', (updated) => {
+        client2State = updated;
+      });
+      activeChannels.push(client2);
+
+      client2.sendToggleEndorsement(prop.id);
+
+      expect(client2State).toBeDefined();
+      expect(client2State!.workshopProposals?.[prop.id].endorsements).toContain('client-endorser');
+      expect(clientRoomState!.workshopProposals?.[prop.id].endorsements).toContain('client-endorser');
+      expect(hostRoomState.workshopProposals?.[prop.id].endorsements).toContain('client-endorser');
     });
   });
 });

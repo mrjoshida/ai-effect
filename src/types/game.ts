@@ -70,6 +70,21 @@ export interface ScenarioRoundRecord {
   votes: Record<string, ParticipantVote>;
 }
 
+export type WorkshopStage = 'small_groups' | 'large_group';
+
+export type WorkshopProposalType = 'protect' | 'automate';
+
+export interface WorkshopProposal {
+  id: string;
+  currentId: RithmCurrentId;
+  clientId: string;
+  authorName: string;
+  type: WorkshopProposalType;
+  text: string;
+  endorsements: string[]; // clientIds who placed an endorsement pebble on this proposal
+  createdAt: number;
+}
+
 export interface RoomState {
   code: string;
   createdAt: number;
@@ -80,6 +95,8 @@ export interface RoomState {
   participants: Record<string, Participant>;
   rounds: Record<string, ScenarioRoundRecord>;
   currentCommitments: Record<RithmCurrentId, string>; // Facilitator-captured team norms per Current
+  workshopStage?: WorkshopStage;
+  workshopProposals?: Record<string, WorkshopProposal>;
 }
 
 export interface StanceTally {
@@ -122,6 +139,7 @@ export interface CurrentsSynthesisBucket {
   items: ScenarioSummaryItem[];
   dominantStance: Stance | 'mixed';
   commitmentText: string;
+  proposals: WorkshopProposal[];
 }
 
 export type ClientInboundMessage =
@@ -142,6 +160,22 @@ export type ClientInboundMessage =
       timestamp: number;
     }
   | {
+      type: 'submit_proposal';
+      code: string;
+      clientId: string;
+      currentId: RithmCurrentId;
+      proposalType: WorkshopProposalType;
+      text: string;
+      timestamp: number;
+    }
+  | {
+      type: 'toggle_endorsement';
+      code: string;
+      clientId: string;
+      proposalId: string;
+      timestamp: number;
+    }
+  | {
       type: 'request_state';
       code: string;
       clientId: string;
@@ -149,3 +183,4 @@ export type ClientInboundMessage =
     };
 
 export type SyncConnectionStatus = 'connected' | 'local_only' | 'connecting' | 'reconnecting';
+

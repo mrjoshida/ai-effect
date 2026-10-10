@@ -1,9 +1,11 @@
 import mqtt, { MqttClient } from 'mqtt';
 import {
   ClientInboundMessage,
+  RithmCurrentId,
   RoomState,
   Stance,
   SyncConnectionStatus,
+  WorkshopProposalType,
 } from '../types/game';
 
 export interface HostRoomChannel {
@@ -15,6 +17,12 @@ export interface HostRoomChannel {
 export interface ClientRoomChannel {
   sendJoin: (name?: string) => void;
   sendVote: (scenarioId: string, stance: Stance, note?: string) => void;
+  sendProposal: (
+    currentId: RithmCurrentId,
+    proposalType: WorkshopProposalType,
+    text: string
+  ) => void;
+  sendToggleEndorsement: (proposalId: string) => void;
   requestState: () => void;
   getStatus: () => SyncConnectionStatus;
   destroy: () => void;
@@ -88,7 +96,13 @@ export function createHostChannel(
   const recentInboundIds = new Map<string, number>();
   const isDuplicateInbound = (msg: ClientInboundMessage): boolean => {
     const key = `${msg.clientId}:${msg.type}:${msg.timestamp}:${
-      msg.type === 'vote' ? msg.scenarioId + ':' + msg.stance : ''
+      msg.type === 'vote'
+        ? msg.scenarioId + ':' + msg.stance
+        : msg.type === 'submit_proposal'
+        ? msg.currentId + ':' + msg.proposalType
+        : msg.type === 'toggle_endorsement'
+        ? msg.proposalId
+        : ''
     }`;
     const now = Date.now();
     const prev = recentInboundIds.get(key);
@@ -407,6 +421,32 @@ export function createClientChannel(
     });
   };
 
+  const sendProposal = (
+    currentId: RithmCurrentId,
+    proposalType: WorkshopProposalType,
+    text: string
+  ) => {
+    sendInbound({
+      type: 'submit_proposal',
+      code: cleanCode,
+      clientId,
+      currentId,
+      proposalType,
+      text,
+      timestamp: Date.now(),
+    });
+  };
+
+  const sendToggleEndorsement = (proposalId: string) => {
+    sendInbound({
+      type: 'toggle_endorsement',
+      code: cleanCode,
+      clientId,
+      proposalId,
+      timestamp: Date.now(),
+    });
+  };
+
   const requestState = () => {
     sendInbound({
       type: 'request_state',
@@ -442,6 +482,8 @@ export function createClientChannel(
   return {
     sendJoin,
     sendVote,
+    sendProposal,
+    sendToggleEndorsement,
     requestState,
     getStatus: () => currentStatus,
     destroy,
