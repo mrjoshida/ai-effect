@@ -54,12 +54,16 @@ export const LandingView: React.FC<LandingViewProps> = ({
         </div>
 
         <h1 style={{ fontSize: '2.8rem', maxWidth: '820px', lineHeight: 1.15 }}>
-          The AI Effect — Philanthropy &amp; Human Connection
+          The AI Effect
         </h1>
+        <h2 style[{{ fontSize: '2rem', maxWidth: '820px', lineHeight: 1.15 }}>
+          Philanthropy &amp; Human Connection
+        </h2>
 
         <p style={{ fontSize: '1.15rem', color: 'var(--ink-secondary)', maxWidth: '720px', lineHeight: 1.5 }}>
-          As artificial intelligence automates more workflows in grantmaking and social impact, where must we
-          fiercely protect, invest in, and build genuine human relationships?
+          As we work to automates more workflows in grantmaking and social impact with AI, the hard question moves 
+          from where <em>could</em> we use AI to where <em>must</em> we 
+          work to build, protect, and invest in genuine human connection?
         </p>
       </section>
 
@@ -88,7 +92,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <h2 style={{ fontSize: '1.45rem' }}>Join a Session</h2>
             </div>
             <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)', marginBottom: '1.5rem' }}>
-              Entering an offsite room on your phone or laptop? Enter the room code from the main screen.
+              Enter the room code on your phone or scan the presenter's QR code.
             </p>
 
             <form onSubmit={handleJoinSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
@@ -199,7 +203,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               <h2 style={{ fontSize: '1.45rem' }}>Facilitate a Session</h2>
             </div>
             <p style={{ fontSize: '0.92rem', color: 'var(--ink-secondary)', marginBottom: '1.25rem' }}>
-              Project on the main room screen. Generates an instant high-contrast QR code for phones to scan.
+              Project or screenshare the slides and scenarios.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -375,7 +379,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
         }}
       >
         <div>
-          Adapted for philanthropy &amp; social-impact teams from{' '}
+          Adapted for philanthropy &amp; social-impact from{' '}
           <a
             href="https://www.therithmproject.org/the-ai-effect"
             target="_blank"
@@ -383,7 +387,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
             style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
           >
             <span>The AI Effect</span>
-            <ExternalLinkIcon size={11} />
           </a>{' '}
           and{' '}
           <a
@@ -393,7 +396,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
             style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
           >
             <span>The Four Currents</span>
-            <ExternalLinkIcon size={11} />
           </a>{' '}
           by{' '}
           <a
