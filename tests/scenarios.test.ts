@@ -263,6 +263,23 @@ describe('Philanthropy Scenarios & The 4 Currents', () => {
       const emptyCategories = getPresetScenarios('custom', []);
       expect(emptyCategories).toHaveLength(20);
     });
+
+    it('interleaves categories across spark-8, current-04-focus, and full-20 so work scenarios are never front-loaded', () => {
+      for (const preset of ['spark-8', 'current-04-focus', 'full-20'] as const) {
+        const deck = getPresetScenarios(preset);
+        // Starts with Everyday Life and Community before Coworkers and Grantees
+        expect(deck[0].category).toBe('life');
+        expect(deck[1].category).toBe('community');
+
+        // Zero back-to-back scenarios from the same category
+        for (let i = 1; i < deck.length; i++) {
+          expect(
+            deck[i].category,
+            `Adjacent duplicate category at index ${i - 1}->${i} in ${preset}`
+          ).not.toBe(deck[i - 1].category);
+        }
+      }
+    });
   });
 
   describe('Stances Metadata', () => {
