@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="16" fill="#FAF6F0"/>
+  <circle cx="32" cy="32" r="28" stroke="#E2D9C8" stroke-width="1.5"/>
+  <!-- Sage Pebble (Supports) -->
+  <path d="M23 16C30.5 14.5 37 19.5 36.5 27C36 34.5 28.5 39 21 37.5C13.5 36 11 29.5 12.5 22.5C14 15.5 17.5 17 23 16Z" fill="#2D6A4F" fill-opacity="0.92"/>
+  <!-- Ochre Pebble (Depends) -->
+  <path d="M42.5 19C49 20.5 53.5 27 51.5 34C49.5 41 42 44 35.5 41C29 38 27.5 31 30.5 24.5C33.5 18 36 17.5 42.5 19Z" fill="#B86B14" fill-opacity="0.92"/>
+  <!-- Terracotta Pebble (Erodes) -->
+  <path d="M31.5 33.5C39 33 45 38.5 44 45.5C43 52.5 35 55.5 27.5 53.5C20 51.5 17.5 45.5 19.5 39C21.5 32.5 25.5 34 31.5 33.5Z" fill="#B84234" fill-opacity="0.92"/>
+</svg>
