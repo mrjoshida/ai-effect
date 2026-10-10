@@ -589,24 +589,6 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                 </div>
               </div>
             )}
-
-            <div
-              style={{
-                marginTop: '0.5rem',
-                paddingTop: '0.75rem',
-                borderTop: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.4rem',
-                color: 'var(--ink-muted)',
-                fontSize: '0.78rem',
-              }}
-            >
-              <span>Eyes on presenter screen</span>
-              <span>•</span>
-              <span>Following facilitator</span>
-            </div>
           </div>
         </div>
       ) : phase === 'currents_framing' ? (
@@ -689,24 +671,6 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                         </div>
                       );
                     })}
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: '0.5rem',
-                      paddingTop: '0.75rem',
-                      borderTop: '1px solid var(--border-subtle)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.4rem',
-                      color: 'var(--ink-muted)',
-                      fontSize: '0.78rem',
-                    }}
-                  >
-                    <span>Eyes on presenter screen</span>
-                    <span>•</span>
-                    <span>Facilitator is introducing the currents</span>
                   </div>
                 </div>
               </div>
@@ -821,24 +785,6 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                     })}
                   </div>
                 )}
-
-                <div
-                  style={{
-                    marginTop: '0.5rem',
-                    paddingTop: '0.75rem',
-                    borderTop: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.4rem',
-                    color: 'var(--ink-muted)',
-                    fontSize: '0.78rem',
-                  }}
-                >
-                  <span>Eyes on presenter screen</span>
-                  <span>•</span>
-                  <span>Exploring {meta.number}</span>
-                </div>
               </div>
             </div>
           );

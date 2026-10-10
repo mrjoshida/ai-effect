@@ -13,7 +13,14 @@ export type RoomPhase =
   | 'currents_framing'
   | 'currents_workshop';
 
-export type DeckPresetId = 'spark-8' | 'current-04-focus' | 'full-20' | 'custom';
+export type DeckPresetId =
+  | 'spark-8'
+  | 'current-01-focus'
+  | 'current-02-focus'
+  | 'current-03-focus'
+  | 'current-04-focus'
+  | 'full-20'
+  | 'custom';
 
 export interface CategoryMeta {
   id: ScenarioCategory;
