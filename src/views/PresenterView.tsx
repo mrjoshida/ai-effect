@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { CurrentsWorkshop } from '../components/CurrentsWorkshop';
+import { FramingSlides } from '../components/FramingSlides';
 import { Pebble } from '../components/Pebble';
 import { ResponseGraph } from '../components/ResponseGraph';
-import { getCurrentMeta } from '../content/currents';
 import { CATEGORY_META } from '../content/scenarios';
 import {
   navigateToScenario,
   saveHostRoomState,
+  setFramingSlideIndex,
   setRoomPhase,
   setWorkshopStage,
   toggleProposalEndorsement,
@@ -18,7 +19,6 @@ import { HostRoomChannel } from '../utils/roomSync';
 import { RoomState, ScenarioCard } from '../types/game';
 import {
   CloseIcon,
-  ExternalLinkIcon,
   QrIcon,
   SparkIcon,
   UsersIcon,
@@ -82,15 +82,59 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
         return;
       }
 
+      const activeSlide = room.framingSlideIndex ?? 0;
+
       if (e.code === 'Space') {
         e.preventDefault();
-        advanceLogicalStep();
+        if (room.phase === 'opening_framing') {
+          if (activeSlide < 2) {
+            updateRoomState(setFramingSlideIndex(room, activeSlide + 1));
+          } else {
+            updateRoomState(setRoomPhase(room, 'voting'));
+          }
+        } else if (room.phase === 'currents_framing') {
+          if (activeSlide < 4) {
+            updateRoomState(setFramingSlideIndex(room, activeSlide + 1));
+          } else {
+            updateRoomState(setRoomPhase(room, 'currents_workshop'));
+          }
+        } else {
+          advanceLogicalStep();
+        }
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
-        handleNextScenario();
+        if (room.phase === 'opening_framing') {
+          if (activeSlide < 2) {
+            updateRoomState(setFramingSlideIndex(room, activeSlide + 1));
+          } else {
+            updateRoomState(setRoomPhase(room, 'voting'));
+          }
+        } else if (room.phase === 'currents_framing') {
+          if (activeSlide < 4) {
+            updateRoomState(setFramingSlideIndex(room, activeSlide + 1));
+          } else {
+            updateRoomState(setRoomPhase(room, 'currents_workshop'));
+          }
+        } else {
+          handleNextScenario();
+        }
       } else if (e.code === 'ArrowLeft') {
         e.preventDefault();
-        handlePrevScenario();
+        if (room.phase === 'opening_framing') {
+          if (activeSlide > 0) {
+            updateRoomState(setFramingSlideIndex(room, activeSlide - 1));
+          } else {
+            updateRoomState(setRoomPhase(room, 'lobby'));
+          }
+        } else if (room.phase === 'currents_framing') {
+          if (activeSlide > 0) {
+            updateRoomState(setFramingSlideIndex(room, activeSlide - 1));
+          } else {
+            updateRoomState(setRoomPhase(room, 'revealed'));
+          }
+        } else {
+          handlePrevScenario();
+        }
       } else if (e.code === 'KeyT') {
         e.preventDefault();
         if (room.phase === 'revealed' && !twistActive) {
@@ -113,7 +157,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
 
   const advanceLogicalStep = () => {
     if (room.phase === 'lobby') {
-      const next = setRoomPhase(room, 'voting');
+      const next = setRoomPhase(room, 'opening_framing');
       updateRoomState(next);
     } else if (room.phase === 'voting') {
       const next = setRoomPhase(room, 'revealed');
@@ -128,7 +172,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
 
   const handleNextScenario = () => {
     if (isLastCard) {
-      const next = setRoomPhase(room, 'currents_workshop');
+      const next = setRoomPhase(room, 'currents_framing');
       updateRoomState(next);
     } else {
       const next = navigateToScenario(room, room.currentScenarioIndex + 1);
@@ -144,7 +188,6 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
   };
 
   const categoryMeta = currentCard ? CATEGORY_META[currentCard.category] : undefined;
-  const currentMeta = currentCard ? getCurrentMeta(currentCard.currentId) : undefined;
   const joinUrl = buildJoinUrl(room.code);
 
   return (
@@ -225,7 +268,70 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
           </div>
         </div>
 
-        {/* Right: Participants count, Workshop toggle & Exit */}
+        {/* Center: Stage Jump Pills */}
+        <div
+          style={{
+            display: 'inline-flex',
+            backgroundColor: 'var(--bg-tray)',
+            padding: '0.25rem',
+            borderRadius: 'var(--radius-full)',
+            border: '1px solid var(--border-default)',
+            gap: '0.2rem',
+          }}
+        >
+          <button
+            id="nav-framing-btn"
+            onClick={() => updateRoomState(setRoomPhase(room, 'opening_framing'))}
+            className={room.phase === 'opening_framing' ? 'btn-primary' : 'btn-ghost'}
+            style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-full)' }}
+          >
+            Framing
+          </button>
+          <button
+            id="nav-scenarios-btn"
+            onClick={() => {
+              const nextPhase =
+                room.phase === 'voting' || room.phase === 'revealed' || room.phase === 'twist'
+                  ? room.phase
+                  : 'voting';
+              updateRoomState(setRoomPhase(room, nextPhase));
+            }}
+            className={
+              room.phase === 'voting' || room.phase === 'revealed' || room.phase === 'twist'
+                ? 'btn-primary'
+                : 'btn-ghost'
+            }
+            style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-full)' }}
+          >
+            Scenarios
+          </button>
+          <button
+            id="nav-currents-framing-btn"
+            onClick={() => updateRoomState(setRoomPhase(room, 'currents_framing'))}
+            className={room.phase === 'currents_framing' ? 'btn-primary' : 'btn-ghost'}
+            style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-full)' }}
+          >
+            Currents Intro
+          </button>
+          <button
+            id="open-workshop-btn"
+            onClick={() => updateRoomState(setRoomPhase(room, 'currents_workshop'))}
+            className={room.phase === 'currents_workshop' ? 'btn-primary' : 'btn-ghost'}
+            style={{
+              fontSize: '0.8rem',
+              padding: '0.3rem 0.75rem',
+              borderRadius: 'var(--radius-full)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+            }}
+          >
+            <WaveIcon size={13} />
+            <span>Workshop</span>
+          </button>
+        </div>
+
+        {/* Right: Participants count & Exit */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span
             style={{
@@ -243,22 +349,6 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
             <UsersIcon size={14} />
             <span>{totalParticipants} joined</span>
           </span>
-
-          <button
-            id="open-workshop-btn"
-            onClick={() => {
-              const next = setRoomPhase(
-                room,
-                room.phase === 'currents_workshop' ? 'revealed' : 'currents_workshop'
-              );
-              updateRoomState(next);
-            }}
-            className={room.phase === 'currents_workshop' ? 'btn-primary' : 'btn-secondary'}
-            style={{ fontSize: '0.82rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-            title="Toggle the Four Currents Workshop synthesis"
-          >
-            <WaveIcon size={14} /> Four Currents Workshop
-          </button>
 
           <button
             onClick={onExit}
@@ -441,11 +531,25 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               </div>
 
               {/* Begin Session Action */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.85rem' }}>
+                <button
+                  id="skip-framing-btn"
+                  onClick={() => {
+                    const next = setRoomPhase(room, 'voting');
+                    updateRoomState(next);
+                  }}
+                  className="btn-secondary"
+                  style={{
+                    padding: '0.95rem 1.4rem',
+                    fontSize: '0.95rem',
+                  }}
+                >
+                  Skip to Scenario 1
+                </button>
                 <button
                   id="begin-session-btn"
                   onClick={() => {
-                    const next = setRoomPhase(room, 'voting');
+                    const next = setRoomPhase(room, 'opening_framing');
                     updateRoomState(next);
                   }}
                   className="btn-primary"
@@ -455,11 +559,51 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                     backgroundColor: 'var(--stance-support)',
                   }}
                 >
-                  Begin First Scenario →
+                  Begin Session →
                 </button>
               </div>
             </div>
           </div>
+        ) : room.phase === 'opening_framing' ? (
+          /* =================================================================
+             OPENING FRAMING PHASE: Built-in 3-Slide Framing Deck
+             ================================================================= */
+          <FramingSlides
+            mode="opening"
+            room={room}
+            onSelectSlide={(index) => {
+              const next = setFramingSlideIndex(room, index);
+              updateRoomState(next);
+            }}
+            onComplete={() => {
+              const next = setRoomPhase(room, 'voting');
+              updateRoomState(next);
+            }}
+            onBack={() => {
+              const next = setRoomPhase(room, 'lobby');
+              updateRoomState(next);
+            }}
+          />
+        ) : room.phase === 'currents_framing' ? (
+          /* =================================================================
+             CURRENTS FRAMING PHASE: Built-in 5-Slide Current Deep-Dive Deck
+             ================================================================= */
+          <FramingSlides
+            mode="currents"
+            room={room}
+            onSelectSlide={(index) => {
+              const next = setFramingSlideIndex(room, index);
+              updateRoomState(next);
+            }}
+            onComplete={() => {
+              const next = setRoomPhase(room, 'currents_workshop');
+              updateRoomState(next);
+            }}
+            onBack={() => {
+              const next = setRoomPhase(room, 'revealed');
+              updateRoomState(next);
+            }}
+          />
         ) : room.phase === 'currents_workshop' ? (
           /* =================================================================
              WORKSHOP PHASE: The Four Currents Offsite Synthesis
@@ -549,21 +693,6 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                   <h1 style={{ fontSize: '2.1rem', maxWidth: '850px', lineHeight: 1.2 }}>
                     {currentCard.title}
                   </h1>
-
-                  {/* Revealed Current Badge */}
-                  {(room.phase === 'revealed' || room.phase === 'twist') && currentMeta && (
-                    <a
-                      href={currentMeta.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="badge-current"
-                      title={currentMeta.pullDescription}
-                    >
-                      <WaveIcon size={14} />
-                      <span>{currentMeta.number}: {currentMeta.title}</span>
-                      <ExternalLinkIcon size={12} />
-                    </a>
-                  )}
                 </div>
 
                 {/* Scenario Prompt */}
@@ -746,7 +875,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                           className="btn-primary"
                           style={{ padding: '0.7rem 1.3rem' }}
                         >
-                          {isLastCard ? 'Open Four Currents Workshop →' : 'Next Scenario →'}
+                          {isLastCard ? 'Introduce The Four Currents →' : 'Next Scenario →'}
                         </button>
                       </div>
                     </div>
