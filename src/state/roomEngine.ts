@@ -14,6 +14,9 @@ import {
   Stance,
   StanceTally,
   TwistShiftDelta,
+  WorkshopProposal,
+  WorkshopProposalType,
+  WorkshopStage,
 } from '../types/game';
 
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -183,6 +186,8 @@ export function createRoomState(
       'current-03': '',
       'current-04': '',
     },
+    workshopStage: 'small_groups',
+    workshopProposals: {},
   };
 }
 
@@ -433,6 +438,99 @@ export function updateCurrentCommitment(
   };
 }
 
+export function setWorkshopStage(
+  room: RoomState,
+  stage: WorkshopStage
+): RoomState {
+  return {
+    ...room,
+    workshopStage: stage,
+    updatedAt: Date.now(),
+  };
+}
+
+export function submitWorkshopProposal(
+  room: RoomState,
+  clientId: string,
+  currentId: RithmCurrentId,
+  proposalType: WorkshopProposalType,
+  text: string
+): RoomState {
+  const cleanText = text.trim().slice(0, 140);
+  if (!cleanText) {
+    return room;
+  }
+
+  let updatedRoom = room;
+  if (!updatedRoom.participants[clientId]) {
+    updatedRoom = joinParticipant(updatedRoom, clientId);
+  }
+
+  const now = Date.now();
+  const id =
+    'wp_' +
+    Math.random().toString(36).substring(2, 9) +
+    now.toString(36);
+
+  const proposal: WorkshopProposal = {
+    id,
+    currentId,
+    clientId,
+    authorName: updatedRoom.participants[clientId].name,
+    type: proposalType,
+    text: cleanText,
+    endorsements: [],
+    createdAt: now,
+  };
+
+  return {
+    ...updatedRoom,
+    workshopProposals: {
+      ...(updatedRoom.workshopProposals || {}),
+      [id]: proposal,
+    },
+    updatedAt: now,
+  };
+}
+
+export function toggleProposalEndorsement(
+  room: RoomState,
+  clientId: string,
+  proposalId: string
+): RoomState {
+  const proposals = room.workshopProposals || {};
+  const proposal = proposals[proposalId];
+  if (!proposal) {
+    return room;
+  }
+
+  let updatedRoom = room;
+  if (!updatedRoom.participants[clientId]) {
+    updatedRoom = joinParticipant(updatedRoom, clientId);
+  }
+
+  const endorsements = proposal.endorsements || [];
+  const hasEndorsed = endorsements.includes(clientId);
+  const nextEndorsements = hasEndorsed
+    ? endorsements.filter((id) => id !== clientId)
+    : [...endorsements, clientId];
+
+  const now = Date.now();
+  const updatedProposal: WorkshopProposal = {
+    ...proposal,
+    endorsements: nextEndorsements,
+  };
+
+  return {
+    ...updatedRoom,
+    workshopProposals: {
+      ...proposals,
+      [proposalId]: updatedProposal,
+    },
+    updatedAt: now,
+  };
+}
+
 export function applyInboundMessage(
   room: RoomState,
   msg: ClientInboundMessage
@@ -447,6 +545,20 @@ export function applyInboundMessage(
         msg.scenarioId,
         msg.stance,
         msg.note
+      );
+    case 'submit_proposal':
+      return submitWorkshopProposal(
+        room,
+        msg.clientId,
+        msg.currentId,
+        msg.proposalType,
+        msg.text
+      );
+    case 'toggle_endorsement':
+      return toggleProposalEndorsement(
+        room,
+        msg.clientId,
+        msg.proposalId
       );
     case 'request_state':
       if (room.participants[msg.clientId]) {
@@ -642,6 +754,8 @@ export function computeTwistShiftDelta(
 export function computeCurrentsSynthesis(
   room: RoomState
 ): CurrentsSynthesisBucket[] {
+  const allProposals = Object.values(room.workshopProposals || {});
+
   return RITHM_CURRENTS_LIST.map((currentMeta) => {
     const scenariosForCurrent = room.scenarios.filter(
       (s) => s.currentId === currentMeta.id
@@ -700,11 +814,20 @@ export function computeCurrentsSynthesis(
       }
     }
 
+    const currentProposals = allProposals
+      .filter((p) => p.currentId === currentMeta.id)
+      .sort((a, b) => {
+        const diff = (b.endorsements?.length || 0) - (a.endorsements?.length || 0);
+        if (diff !== 0) return diff;
+        return a.createdAt - b.createdAt;
+      });
+
     return {
       current: currentMeta,
       items,
       dominantStance,
       commitmentText: room.currentCommitments[currentMeta.id] || '',
+      proposals: currentProposals,
     };
   });
 }
@@ -780,6 +903,36 @@ export function formatWorkshopMarkdown(room: RoomState): string {
     lines.push('');
     lines.push(`> ${bucket.current.pullDescription}`);
     lines.push('');
+
+    // Proposals section
+    const protectProposals = bucket.proposals.filter((p) => p.type === 'protect');
+    const automateProposals = bucket.proposals.filter((p) => p.type === 'automate');
+
+    if (bucket.proposals.length > 0) {
+      lines.push('#### Team Proposals & Priorities');
+      lines.push('');
+      lines.push('##### Protect & Build (Human Rituals & Red Lines)');
+      if (protectProposals.length > 0) {
+        for (const p of protectProposals) {
+          const count = p.endorsements?.length || 0;
+          lines.push(`- **[+${count}]** ${p.text} *(${p.authorName})*`);
+        }
+      } else {
+        lines.push('_No protect proposals submitted yet._');
+      }
+      lines.push('');
+      lines.push('##### Automate for Time (Gladly Delegate)');
+      if (automateProposals.length > 0) {
+        for (const p of automateProposals) {
+          const count = p.endorsements?.length || 0;
+          lines.push(`- **[+${count}]** ${p.text} *(${p.authorName})*`);
+        }
+      } else {
+        lines.push('_No automate proposals submitted yet._');
+      }
+      lines.push('');
+    }
+
     lines.push('#### Team Norm / Commitment');
     if (bucket.commitmentText.trim()) {
       lines.push(`> **"${bucket.commitmentText.trim()}"**`);

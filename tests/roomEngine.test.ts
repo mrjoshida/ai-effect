@@ -20,7 +20,10 @@ import {
   recordParticipantVote,
   saveHostRoomState,
   setRoomPhase,
+  setWorkshopStage,
   simulateTeamVotesForCurrentScenario,
+  submitWorkshopProposal,
+  toggleProposalEndorsement,
   triggerScenarioTwist,
   updateCurrentCommitment,
 } from '../src/state/roomEngine';
@@ -400,6 +403,158 @@ describe('Room Engine State Machine & Analytics', () => {
       expect(md).toContain('Never automate heartfelt praise');
       expect(md).toContain('Flipping the Script');
       expect(md).toContain('Protecting Connection');
+    });
+  });
+
+  describe('Multi-User Currents Workshop State & Proposals', () => {
+    it('initializes workshopStage to small_groups and workshopProposals to empty record', () => {
+      const room = createRoomState();
+      expect(room.workshopStage).toBe('small_groups');
+      expect(room.workshopProposals).toEqual({});
+    });
+
+    it('updates workshopStage with setWorkshopStage', () => {
+      let room = createRoomState();
+      room = setWorkshopStage(room, 'large_group');
+      expect(room.workshopStage).toBe('large_group');
+    });
+
+    it('submits a proposal, trimming text and assigning authorName and id', () => {
+      let room = createRoomState();
+      room = joinParticipant(room, 'c1', 'Curious Capybara');
+      room = submitWorkshopProposal(
+        room,
+        'c1',
+        'current-01',
+        'protect',
+        '  Never use AI to draft peer recognition notes  '
+      );
+
+      const proposals = Object.values(room.workshopProposals || {});
+      expect(proposals).toHaveLength(1);
+      const prop = proposals[0];
+      expect(prop.id).toMatch(/^wp_/);
+      expect(prop.text).toBe('Never use AI to draft peer recognition notes');
+      expect(prop.currentId).toBe('current-01');
+      expect(prop.type).toBe('protect');
+      expect(prop.clientId).toBe('c1');
+      expect(prop.authorName).toBe('Curious Capybara');
+      expect(prop.endorsements).toEqual([]);
+    });
+
+    it('caps proposal text at 140 characters and ignores empty text', () => {
+      let room = createRoomState();
+      const longText = 'a'.repeat(200);
+      room = submitWorkshopProposal(room, 'c1', 'current-02', 'automate', longText);
+
+      const proposals = Object.values(room.workshopProposals || {});
+      expect(proposals).toHaveLength(1);
+      expect(proposals[0].text).toHaveLength(140);
+
+      // Empty submission returns room unchanged
+      const roomBefore = room;
+      const roomAfter = submitWorkshopProposal(room, 'c1', 'current-02', 'automate', '   ');
+      expect(roomAfter).toBe(roomBefore);
+    });
+
+    it('toggles proposal endorsements on and off', () => {
+      let room = createRoomState();
+      room = submitWorkshopProposal(room, 'c1', 'current-03', 'protect', 'Read original quotes');
+      const propId = Object.keys(room.workshopProposals || {})[0];
+
+      // Endorse
+      room = toggleProposalEndorsement(room, 'c2', propId);
+      expect(room.workshopProposals?.[propId].endorsements).toContain('c2');
+
+      // Toggle off
+      room = toggleProposalEndorsement(room, 'c2', propId);
+      expect(room.workshopProposals?.[propId].endorsements).not.toContain('c2');
+
+      // Toggle non-existent proposal returns room unchanged
+      const roomSame = toggleProposalEndorsement(room, 'c2', 'non-existent');
+      expect(roomSame).toBe(room);
+    });
+
+    it('handles submit_proposal and toggle_endorsement via applyInboundMessage', () => {
+      let room = createRoomState();
+      room = applyInboundMessage(room, {
+        type: 'submit_proposal',
+        code: room.code,
+        clientId: 'c1',
+        currentId: 'current-04',
+        proposalType: 'automate',
+        text: 'Automate calendar scheduling',
+        timestamp: Date.now(),
+      });
+
+      const propId = Object.keys(room.workshopProposals || {})[0];
+      expect(propId).toBeDefined();
+      expect(room.workshopProposals?.[propId].text).toBe('Automate calendar scheduling');
+
+      room = applyInboundMessage(room, {
+        type: 'toggle_endorsement',
+        code: room.code,
+        clientId: 'c2',
+        proposalId: propId,
+        timestamp: Date.now(),
+      });
+
+      expect(room.workshopProposals?.[propId].endorsements).toContain('c2');
+    });
+
+    it('sorts proposals by endorsement count descending and createdAt ascending in synthesis', () => {
+      let room = createRoomState();
+      // Add three proposals to current-01
+      room = submitWorkshopProposal(room, 'c1', 'current-01', 'protect', 'Proposal A (0 endorsements)');
+      const propAId = Object.keys(room.workshopProposals || {})[0];
+
+      room = submitWorkshopProposal(room, 'c2', 'current-01', 'automate', 'Proposal B (2 endorsements)');
+      const propBId = Object.keys(room.workshopProposals || {})[1];
+
+      room = submitWorkshopProposal(room, 'c3', 'current-01', 'protect', 'Proposal C (1 endorsement)');
+      const propCId = Object.keys(room.workshopProposals || {})[2];
+
+      room = toggleProposalEndorsement(room, 'v1', propBId);
+      room = toggleProposalEndorsement(room, 'v2', propBId);
+      room = toggleProposalEndorsement(room, 'v1', propCId);
+
+      const synthesis = computeCurrentsSynthesis(room);
+      const c1Bucket = synthesis.find((b) => b.current.id === 'current-01');
+      expect(c1Bucket).toBeDefined();
+      expect(c1Bucket?.proposals).toHaveLength(3);
+      expect(c1Bucket?.proposals[0].id).toBe(propBId);
+      expect(c1Bucket?.proposals[1].id).toBe(propCId);
+      expect(c1Bucket?.proposals[2].id).toBe(propAId);
+    });
+
+    it('formats submitted proposals into markdown export grouped by protect and automate', () => {
+      let room = createRoomState();
+      room = joinParticipant(room, 'c1', 'Curious Capybara');
+      room = joinParticipant(room, 'c2', 'Dapper Dolphin');
+      room = submitWorkshopProposal(
+        room,
+        'c1',
+        'current-01',
+        'protect',
+        'Never use AI to draft peer recognition notes'
+      );
+      const propId = Object.keys(room.workshopProposals || {})[0];
+      room = toggleProposalEndorsement(room, 'c2', propId);
+
+      room = submitWorkshopProposal(
+        room,
+        'c2',
+        'current-01',
+        'automate',
+        'Draft calendar coordination emails'
+      );
+
+      const md = formatWorkshopMarkdown(room);
+      expect(md).toContain('#### Team Proposals & Priorities');
+      expect(md).toContain('##### Protect & Build (Human Rituals & Red Lines)');
+      expect(md).toContain('- **[+1]** Never use AI to draft peer recognition notes *(Curious Capybara)*');
+      expect(md).toContain('##### Automate for Time (Gladly Delegate)');
+      expect(md).toContain('- **[+0]** Draft calendar coordination emails *(Dapper Dolphin)*');
     });
   });
 });
