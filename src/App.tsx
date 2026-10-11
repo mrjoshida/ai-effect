@@ -18,6 +18,7 @@ import { ParticipantView } from './views/ParticipantView';
 import { PresenterView } from './views/PresenterView';
 import {
   ClientInboundMessage,
+  CustomDeckOptions,
   DeckPresetId,
   RoomState,
   ScenarioCategory,
@@ -112,7 +113,7 @@ export const App: React.FC = () => {
   // Start Facilitating (Host)
   const handleStartHost = (
     preset: DeckPresetId,
-    selectedCategories?: ScenarioCategory[],
+    customOrCategories?: ScenarioCategory[] | CustomDeckOptions,
     customCode?: string
   ) => {
     // Clean up any prior channels
@@ -123,7 +124,7 @@ export const App: React.FC = () => {
       ? customCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12)
       : undefined;
 
-    const deck = getPresetScenarios(preset, selectedCategories);
+    const deck = getPresetScenarios(preset, customOrCategories);
     const newRoom = createRoomState(deck, cleanCustomCode || undefined);
     saveHostRoomState(newRoom);
 

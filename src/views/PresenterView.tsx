@@ -726,7 +726,25 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 </span>
               </div>
 
-              <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  id="end-scenarios-early-btn"
+                  onClick={() => {
+                    const next = setRoomPhase(room, 'currents_framing');
+                    updateRoomState(next);
+                  }}
+                  className="btn-secondary"
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    fontSize: '0.85rem',
+                    color: 'var(--currents-teal)',
+                    borderColor: 'var(--currents-teal-border)',
+                  }}
+                  title="Wrap up scenarios early and move to The Four Currents"
+                >
+                  End Scenarios → Currents
+                </button>
+
                 <button
                   id="prev-scenario-btn"
                   onClick={handlePrevScenario}
@@ -933,6 +951,25 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                             <SparkIcon size={15} />
                             <span>"What if?" Active</span>
                           </span>
+                        )}
+
+                        {!isLastCard && (
+                          <button
+                            id="finish-scenarios-btn"
+                            onClick={() => {
+                              const next = setRoomPhase(room, 'currents_framing');
+                              updateRoomState(next);
+                            }}
+                            className="btn-secondary"
+                            style={{
+                              padding: '0.7rem 1.15rem',
+                              color: 'var(--currents-teal)',
+                              borderColor: 'var(--currents-teal-border)',
+                            }}
+                            title="Wrap up scenarios and move to The Four Currents"
+                          >
+                            End Scenarios → Currents
+                          </button>
                         )}
 
                         <button
