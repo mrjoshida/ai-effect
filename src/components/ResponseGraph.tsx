@@ -128,8 +128,8 @@ export const ResponseGraph: React.FC<ResponseGraphProps> = ({
         </div>
       </div>
 
-      {/* 2. Twist Shift Banner & Delta (when Twist Triggered) */}
-      {isTwistActive && (
+      {/* 2. Twist Shift Banner & Delta (when Twist Triggered and votes shifted) */}
+      {isTwistActive && delta.shiftedCount > 0 && (
         <div
           className="twist-shift-delta-card"
           style={{
