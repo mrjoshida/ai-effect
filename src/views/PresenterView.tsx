@@ -896,92 +896,65 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                   />
                 </div>
 
-                {/* Compact Integrated Facilitator Discussion Bar */}
+                {/* Action Bar */}
                 {currentCard && (
                   <div
-                    className="card-tabletop"
                     style={{
-                      borderLeft: '4px solid var(--stance-support)',
-                      padding: '1.25rem 1.5rem',
                       display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.85rem',
+                      justifyContent: 'flex-end',
+                      alignItems: 'center',
+                      gap: '0.65rem',
+                      flexWrap: 'wrap',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1.25rem', flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: '300px' }}>
-                        <span
-                          style={{
-                            fontSize: '0.76rem',
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em',
-                            color: 'var(--stance-support-text)',
-                          }}
-                        >
-                          Facilitator Discussion Prompt
-                        </span>
-                        <h3 style={{ fontSize: '1.2rem', marginTop: '0.25rem', lineHeight: 1.35 }}>
-                          {currentCard.discussionQuestion}
-                        </h3>
-                      </div>
+                    {!twistActive && (
+                      <button
+                        id="trigger-twist-btn"
+                        onClick={() => {
+                          const next = triggerScenarioTwist(room);
+                          updateRoomState(next);
+                        }}
+                        className="btn-primary"
+                        style={{
+                          backgroundColor: 'var(--stance-depends)',
+                          padding: '0.7rem 1.25rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <SparkIcon size={15} />
+                        <span>What if?</span>
+                      </button>
+                    )}
 
-                      <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        {!twistActive ? (
-                          <button
-                            id="trigger-twist-btn"
-                            onClick={() => {
-                              const next = triggerScenarioTwist(room);
-                              updateRoomState(next);
-                            }}
-                            className="btn-primary"
-                            style={{
-                              backgroundColor: 'var(--stance-depends)',
-                              padding: '0.7rem 1.25rem',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.4rem',
-                            }}
-                          >
-                            <SparkIcon size={15} />
-                            <span>What if?</span>
-                          </button>
-                        ) : (
-                          <span style={{ fontSize: '0.85rem', color: 'var(--stance-depends-text)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <SparkIcon size={15} />
-                            <span>"What if?" Active</span>
-                          </span>
-                        )}
+                    {!isLastCard && (
+                      <button
+                        id="finish-scenarios-btn"
+                        onClick={() => {
+                          const next = setRoomPhase(room, 'currents_framing');
+                          updateRoomState(next);
+                        }}
+                        className="btn-secondary"
+                        style={{
+                          padding: '0.7rem 1.15rem',
+                          color: 'var(--currents-teal)',
+                          borderColor: 'var(--currents-teal-border)',
+                        }}
+                        title="Wrap up scenarios and move to The Four Currents"
+                      >
+                        End Scenarios → Currents
+                      </button>
+                    )}
 
-                        {!isLastCard && (
-                          <button
-                            id="finish-scenarios-btn"
-                            onClick={() => {
-                              const next = setRoomPhase(room, 'currents_framing');
-                              updateRoomState(next);
-                            }}
-                            className="btn-secondary"
-                            style={{
-                              padding: '0.7rem 1.15rem',
-                              color: 'var(--currents-teal)',
-                              borderColor: 'var(--currents-teal-border)',
-                            }}
-                            title="Wrap up scenarios and move to The Four Currents"
-                          >
-                            End Scenarios → Currents
-                          </button>
-                        )}
-
-                        <button
-                          id="advance-scenario-btn"
-                          onClick={handleNextScenario}
-                          className="btn-primary"
-                          style={{ padding: '0.7rem 1.3rem' }}
-                        >
-                          {isLastCard ? 'Introduce The Four Currents →' : 'Next Scenario →'}
-                        </button>
-                      </div>
-                    </div>
+                    <button
+                      id="advance-scenario-btn"
+                      onClick={handleNextScenario}
+                      className="btn-primary"
+                      style={{ padding: '0.7rem 1.3rem' }}
+                    >
+                      {isLastCard ? 'Introduce The Four Currents →' : 'Next Scenario →'}
+                    </button>
                   </div>
                 )}
               </div>
