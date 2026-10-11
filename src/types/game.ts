@@ -1,6 +1,14 @@
 export type Stance = 'support' | 'depends' | 'erode';
 
-export type ScenarioCategory = 'coworkers' | 'grantees' | 'community' | 'life';
+export type ScenarioCategory =
+  | 'coworkers'
+  | 'grantees'
+  | 'community'
+  | 'life'
+  | 'mentorship'
+  | 'caregiving'
+  | 'leadership'
+  | 'creative';
 
 export type RithmCurrentId = 'current-01' | 'current-02' | 'current-03' | 'current-04';
 
@@ -21,6 +29,13 @@ export type DeckPresetId =
   | 'current-04-focus'
   | 'full-20'
   | 'custom';
+
+export interface CustomDeckOptions {
+  categories?: ScenarioCategory[];
+  currents?: RithmCurrentId[];
+  count?: number;
+  seed?: string | number;
+}
 
 export interface CategoryMeta {
   id: ScenarioCategory;
