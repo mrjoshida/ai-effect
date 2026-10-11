@@ -1,4 +1,5 @@
 import React from 'react';
+import { CATEGORY_META } from '../content/scenarios';
 import { computeCurrentsSynthesis } from '../state/roomEngine';
 import { RoomState } from '../types/game';
 import { ExternalLinkIcon, SparkIcon, WaveIcon } from './Icons';
@@ -733,6 +734,8 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
         if (!bucket) return null;
         const current = bucket.current;
         const items = bucket.items;
+        const playedItems = items.filter((i) => i.tally.total > 0);
+        const visibleItems = playedItems.length > 0 ? playedItems : items.slice(0, 3);
 
         return (
           <div
@@ -829,17 +832,19 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                   How This Current Showed Up in Our Scenarios
                 </h3>
                 <span style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {items.length} {items.length === 1 ? 'scenario' : 'scenarios'} mapped
+                  {playedItems.length > 0
+                    ? `${playedItems.length} played (${items.length} in deck)`
+                    : `${items.length} ${items.length === 1 ? 'scenario' : 'scenarios'} in deck`}
                 </span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', maxHeight: '520px', overflowY: 'auto', paddingRight: '0.35rem' }}>
-                {items.length === 0 ? (
+                {visibleItems.length === 0 ? (
                   <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--ink-muted)', fontStyle: 'italic', backgroundColor: 'var(--bg-card-subtle)', borderRadius: 'var(--radius-md)' }}>
                     No scenarios from the active deck were mapped to this current.
                   </div>
                 ) : (
-                  items.map((item) => {
+                  visibleItems.map((item) => {
                     const played = item.tally.total > 0;
                     const roundVotes = item.round?.votes ? Object.values(item.round.votes) : [];
                     const participantNotes = roundVotes
@@ -879,7 +884,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                           <div>
                             <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', color: 'var(--ink-muted)' }}>
-                              {item.scenario.category}
+                              {CATEGORY_META[item.scenario.category]?.shortLabel || item.scenario.category}
                             </span>
                             <h4 style={{ fontSize: '1rem', margin: '0.1rem 0 0 0' }}>
                               {item.scenario.title}

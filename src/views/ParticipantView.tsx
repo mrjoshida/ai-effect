@@ -55,7 +55,13 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
 
   // Workshop Form State
   const [selectedWorkshopCurrent, setSelectedWorkshopCurrent] =
-    useState<RithmCurrentId>('current-01');
+    useState<RithmCurrentId>(() => {
+      if (room?.scenarios && room.scenarios.length > 0) {
+        const hasCurrent01 = room.scenarios.some((s) => s.currentId === 'current-01');
+        return hasCurrent01 ? 'current-01' : room.scenarios[0].currentId;
+      }
+      return 'current-01';
+    });
   const [workshopProposalType, setWorkshopProposalType] =
     useState<WorkshopProposalType>('protect');
   const [workshopProposalText, setWorkshopProposalText] = useState('');
@@ -681,7 +687,14 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
           const targetCurrentId: RithmCurrentId =
             slideIdx === 1 ? 'current-01' : slideIdx === 2 ? 'current-02' : slideIdx === 3 ? 'current-03' : 'current-04';
           const meta = getCurrentMeta(targetCurrentId);
-          const connectedScenarios = room ? room.scenarios.filter((s) => s.currentId === targetCurrentId) : [];
+          const allConnectedScenarios = room ? room.scenarios.filter((s) => s.currentId === targetCurrentId) : [];
+          const playedConnectedScenarios = allConnectedScenarios.filter(
+            (s) => room?.rounds[s.id] && Object.keys(room.rounds[s.id].votes).length > 0
+          );
+          const connectedScenarios =
+            playedConnectedScenarios.length > 0
+              ? playedConnectedScenarios
+              : allConnectedScenarios.slice(0, 2);
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1009,8 +1022,12 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                 maxLength={140}
                 placeholder={
                   workshopProposalType === 'protect'
-                    ? 'e.g. Always conduct grantee discovery visits in-person'
-                    : 'e.g. Automate 990 tax filing data extraction'
+                    ? (room?.scenarios.some((s) => s.category === 'grantees')
+                        ? 'e.g. Always conduct grantee discovery visits in-person'
+                        : 'e.g. Always hold mentoring and hard feedback conversations live')
+                    : (room?.scenarios.some((s) => s.category === 'grantees')
+                        ? 'e.g. Automate 990 tax filing data extraction'
+                        : 'e.g. Automate routine scheduling and initial meeting notes')
                 }
                 required
                 style={{
