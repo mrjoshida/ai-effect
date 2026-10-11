@@ -381,7 +381,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               >
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ fontWeight: 700 }}>Short Spark Session</div>
-                  <div style={{ fontSize: '0.78rem', opacity: 0.85 }}>8 cards • ~25 min • Balanced across all domains &amp; Currents</div>
+                  <div style={{ fontSize: '0.78rem', opacity: 0.85 }}>8 cards • ~25 min • Balanced across common domains &amp; Currents</div>
                 </div>
                 <span style={{ fontSize: '1.2rem' }}>→</span>
               </button>
