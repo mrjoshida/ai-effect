@@ -681,7 +681,6 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                 <div className="card-tabletop" style={{ padding: '1rem', borderLeft: '4px solid var(--currents-teal)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
-                      <WaveIcon size={14} />
                       <span
                         style={{
                           fontFamily: 'var(--font-mono)',
@@ -932,7 +931,6 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
               <div className="card-tabletop" style={{ padding: '1rem', borderLeft: '4px solid var(--currents-teal)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
-                    <WaveIcon size={14} />
                     <span
                       style={{
                         fontFamily: 'var(--font-mono)',

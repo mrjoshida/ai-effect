@@ -8,7 +8,7 @@ import {
   WorkshopStage,
 } from '../types/game';
 import { Pebble } from './Pebble';
-import { CheckIcon, CopyIcon, ExternalLinkIcon, SparkIcon, WaveIcon } from './Icons';
+import { CheckIcon, CopyIcon, ExternalLinkIcon, SparkIcon } from './Icons';
 
 export interface CurrentsWorkshopProps {
   room: RoomState;
@@ -82,7 +82,6 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
       >
         <div style={{ maxWidth: '760px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-            <WaveIcon size={16} />
             <span
               style={{
                 fontFamily: 'var(--font-mono)',

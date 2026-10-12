@@ -29,7 +29,6 @@ import {
   QrIcon,
   SparkIcon,
   UsersIcon,
-  WaveIcon,
 } from '../components/Icons';
 
 export interface PresenterViewProps {
@@ -463,17 +462,9 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
             id="open-workshop-btn"
             onClick={() => updateRoomState(setRoomPhase(room, 'currents_workshop'))}
             className={room.phase === 'currents_workshop' ? 'btn-primary' : 'btn-ghost'}
-            style={{
-              fontSize: '0.8rem',
-              padding: '0.3rem 0.75rem',
-              borderRadius: 'var(--radius-full)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-            }}
+            style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', borderRadius: 'var(--radius-full)' }}
           >
-            <WaveIcon size={13} />
-            <span>Brainstorm</span>
+            Brainstorm
           </button>
         </div>
 
