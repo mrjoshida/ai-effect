@@ -101,7 +101,18 @@ export interface ScenarioRoundRecord {
 
 export type WorkshopStage = 'small_groups' | 'large_group';
 
-export type WorkshopProposalType = 'protect' | 'automate';
+export type WorkshopProposalType = 'general' | 'protect' | 'automate';
+
+export type WorkshopGroupingStatus = 'idle' | 'grouping' | 'grouped' | 'unavailable';
+
+export interface WorkshopIdeaGroup {
+  id: string;
+  currentId: RithmCurrentId;
+  themeTitle: string;
+  proposalIds: string[];
+  endorsements: string[]; // clientIds who +1'd this affinity group
+  createdAt: number;
+}
 
 export interface WorkshopProposal {
   id: string;
@@ -127,6 +138,8 @@ export interface RoomState {
   framingSlideIndex?: number;
   workshopStage?: WorkshopStage;
   workshopProposals?: Record<string, WorkshopProposal>;
+  workshopIdeaGroups?: Record<string, WorkshopIdeaGroup>;
+  workshopGroupingStatus?: WorkshopGroupingStatus;
 }
 
 export interface StanceTally {
@@ -170,6 +183,7 @@ export interface CurrentsSynthesisBucket {
   dominantStance: Stance | 'mixed';
   commitmentText: string;
   proposals: WorkshopProposal[];
+  ideaGroups?: WorkshopIdeaGroup[];
 }
 
 export type ClientInboundMessage =
@@ -194,7 +208,7 @@ export type ClientInboundMessage =
       code: string;
       clientId: string;
       currentId: RithmCurrentId;
-      proposalType: WorkshopProposalType;
+      proposalType?: WorkshopProposalType;
       text: string;
       timestamp: number;
     }
@@ -203,6 +217,13 @@ export type ClientInboundMessage =
       code: string;
       clientId: string;
       proposalId: string;
+      timestamp: number;
+    }
+  | {
+      type: 'toggle_group_endorsement';
+      code: string;
+      clientId: string;
+      groupId: string;
       timestamp: number;
     }
   | {

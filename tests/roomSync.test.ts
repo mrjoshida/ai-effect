@@ -6,6 +6,7 @@ import {
   joinParticipant,
   navigateToScenario,
   recordParticipantVote,
+  setWorkshopIdeaGroups,
 } from '../src/state/roomEngine';
 import { ClientInboundMessage, RoomState } from '../src/types/game';
 import { buildJoinUrl, generateJoinQrSvg } from '../src/utils/qrCode';
@@ -315,6 +316,72 @@ describe('Room Synchronization & QR Code', () => {
       expect(client2State!.workshopProposals?.[prop.id].endorsements).toContain('client-endorser');
       expect(clientRoomState!.workshopProposals?.[prop.id].endorsements).toContain('client-endorser');
       expect(hostRoomState.workshopProposals?.[prop.id].endorsements).toContain('client-endorser');
+    });
+
+    it('propagates participant presence and group endorsements via sendJoin and sendToggleGroupEndorsement', () => {
+      const code = 'GROUP_SYNC';
+      let hostRoomState = createRoomState(PHILANTHROPY_SCENARIOS.slice(0, 2), code);
+
+      let hostChannel: HostRoomChannel;
+      hostChannel = createHostChannel(code, hostRoomState, (inboundMsg) => {
+        hostRoomState = applyInboundMessage(hostRoomState, inboundMsg);
+        hostChannel.publishState(hostRoomState);
+      });
+      activeChannels.push(hostChannel);
+
+      let client1State: RoomState | undefined = undefined;
+      const client1 = createClientChannel(code, 'c-group-1', (s) => {
+        client1State = s;
+      });
+      activeChannels.push(client1);
+
+      let client2State: RoomState | undefined = undefined;
+      const client2 = createClientChannel(code, 'c-group-2', (s) => {
+        client2State = s;
+      });
+      activeChannels.push(client2);
+
+      const getClient1 = (): RoomState => {
+        expect(client1State).toBeDefined();
+        return client1State!;
+      };
+      const getClient2 = (): RoomState => {
+        expect(client2State).toBeDefined();
+        return client2State!;
+      };
+
+      // Client 1 sends join
+      client1.sendJoin('Joyful Jaguar');
+      expect(hostRoomState.participants['c-group-1']?.name).toBe('Joyful Jaguar');
+      expect(getClient1().participants?.['c-group-1']?.name).toBe('Joyful Jaguar');
+      expect(getClient2().participants?.['c-group-1']?.name).toBe('Joyful Jaguar');
+
+      // Host sets up a group
+      const sampleGroupId = 'wig_current-01_99';
+      hostRoomState = setWorkshopIdeaGroups(
+        hostRoomState,
+        [
+          {
+            id: sampleGroupId,
+            currentId: 'current-01',
+            themeTitle: 'Shared Recognition',
+            proposalIds: [],
+            endorsements: [],
+            createdAt: Date.now(),
+          },
+        ],
+        'grouped'
+      );
+      hostChannel.publishState(hostRoomState);
+
+      expect(getClient1().workshopIdeaGroups?.[sampleGroupId]).toBeDefined();
+
+      // Client 2 toggles endorsement on group
+      client2.sendToggleGroupEndorsement(sampleGroupId);
+
+      expect(hostRoomState.workshopIdeaGroups?.[sampleGroupId].endorsements).toContain('c-group-2');
+      expect(getClient1().workshopIdeaGroups?.[sampleGroupId]?.endorsements).toContain('c-group-2');
+      expect(getClient2().workshopIdeaGroups?.[sampleGroupId]?.endorsements).toContain('c-group-2');
     });
   });
 });
