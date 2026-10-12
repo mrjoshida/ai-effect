@@ -3,6 +3,7 @@ import { getPresetScenarios } from './content/scenarios';
 import {
   applyInboundMessage,
   createRoomState,
+  generateAlliterativeAnimalName,
   getOrCreateClientId,
   loadHostRoomState,
   saveHostRoomState,
@@ -13,6 +14,7 @@ import {
   ClientRoomChannel,
   HostRoomChannel,
 } from './utils/roomSync';
+import { getConfiguredAiKey } from './utils/ideaGrouping';
 import { LandingView } from './views/LandingView';
 import { ParticipantView } from './views/ParticipantView';
 import { PresenterView } from './views/PresenterView';
@@ -44,6 +46,9 @@ export const App: React.FC = () => {
   // Detect URL parameter ?code=XXXX or #join/XXXX
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Immediately persist and clean any facilitator AI key in URL hash
+    getConfiguredAiKey();
 
     const urlParams = new URLSearchParams(window.location.search);
     let codeParam = urlParams.get('code') || '';
@@ -201,8 +206,10 @@ export const App: React.FC = () => {
     hostChannel?.destroy();
     participantChannel?.destroy();
 
+    const resolvedName = (name && name.trim()) || generateAlliterativeAnimalName(clientId);
+
     setParticipantCode(cleanCode);
-    if (name) setParticipantName(name);
+    setParticipantName(resolvedName);
 
     // If host state is stored locally for this code (e.g. testing in same browser), load it initially
     const localHost = loadHostRoomState(cleanCode);
@@ -218,7 +225,7 @@ export const App: React.FC = () => {
       }
     );
 
-    channel.sendJoin(name);
+    channel.sendJoin(resolvedName);
     setParticipantChannel(channel);
     setMode('participant');
 

@@ -20,3 +20,20 @@ export async function generateJoinQrSvg(joinUrl: string): Promise<string> {
     },
   });
 }
+
+export function formatShortJoinLink(joinUrl: string): string {
+  let cleaned = joinUrl.trim().replace(/^https?:\/\//i, '');
+  cleaned = cleaned.replace(/\/+\?/, '/?');
+  if (!cleaned.includes('?')) {
+    cleaned = cleaned.replace(/\/+$/, '');
+  }
+  return cleaned;
+}
+
+export function formatBaseJoinDomain(joinUrl: string): string {
+  let cleaned = joinUrl.trim().replace(/^https?:\/\//i, '');
+  cleaned = cleaned.split('?')[0].split('#')[0];
+  cleaned = cleaned.replace(/\/+$/, '');
+  return cleaned;
+}
+

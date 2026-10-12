@@ -21,14 +21,28 @@ import {
   saveHostRoomState,
   setFramingSlideIndex,
   setRoomPhase,
+  setWorkshopGroupingStatus,
+  setWorkshopIdeaGroups,
   setWorkshopStage,
   simulateTeamVotesForCurrentScenario,
   submitWorkshopProposal,
+  toggleGroupEndorsement,
   toggleProposalEndorsement,
   triggerScenarioTwist,
   updateCurrentCommitment,
 } from '../src/state/roomEngine';
-import { ClientInboundMessage, RoomState, ScenarioCard } from '../src/types/game';
+import {
+  groupWorkshopIdeasWithAI,
+  resetIdeaGroupingCacheForTesting,
+} from '../src/utils/ideaGrouping';
+import { formatBaseJoinDomain, formatShortJoinLink } from '../src/utils/qrCode';
+import {
+  ClientInboundMessage,
+  RoomState,
+  ScenarioCard,
+  WorkshopIdeaGroup,
+  WorkshopProposal,
+} from '../src/types/game';
 
 describe('Room Engine State Machine & Analytics', () => {
   beforeEach(() => {
@@ -594,6 +608,270 @@ describe('Room Engine State Machine & Analytics', () => {
       expect(md).toContain('- **[+1]** Never use AI to draft peer recognition notes *(Curious Capybara)*');
       expect(md).toContain('##### Automate for Time (Gladly Delegate)');
       expect(md).toContain('- **[+0]** Draft calendar coordination emails *(Dapper Dolphin)*');
+    });
+  });
+
+  describe('Stage 2 Auto-Grouping & Affinity Groups', () => {
+    it('defaults proposalType to general when omitted in submitWorkshopProposal or inbound message', () => {
+      let room = createRoomState();
+      room = submitWorkshopProposal(room, 'c1', 'current-01', undefined, 'General brainstorm idea');
+      const proposals = Object.values(room.workshopProposals || {});
+      expect(proposals).toHaveLength(1);
+      expect(proposals[0].type).toBe('general');
+
+      room = applyInboundMessage(room, {
+        type: 'submit_proposal',
+        code: room.code,
+        clientId: 'c2',
+        currentId: 'current-02',
+        text: 'Inbound general proposal',
+        timestamp: Date.now(),
+      });
+      const prop2 = Object.values(room.workshopProposals || {}).find((p) => p.clientId === 'c2');
+      expect(prop2).toBeDefined();
+      expect(prop2?.type).toBe('general');
+    });
+
+    it('sets workshopGroupingStatus and workshopIdeaGroups cleanly', () => {
+      let room = createRoomState();
+      expect(room.workshopGroupingStatus).toBe('idle');
+      expect(room.workshopIdeaGroups).toEqual({});
+
+      room = setWorkshopGroupingStatus(room, 'grouping');
+      expect(room.workshopGroupingStatus).toBe('grouping');
+
+      const sampleGroups: WorkshopIdeaGroup[] = [
+        {
+          id: 'wig_current-01_1',
+          currentId: 'current-01',
+          themeTitle: 'Personal Milestone Outreach',
+          proposalIds: ['p1', 'p2'],
+          endorsements: [],
+          createdAt: Date.now(),
+        },
+      ];
+
+      room = setWorkshopIdeaGroups(room, sampleGroups, 'grouped');
+      expect(room.workshopGroupingStatus).toBe('grouped');
+      expect(room.workshopIdeaGroups?.['wig_current-01_1']).toEqual(sampleGroups[0]);
+    });
+
+    it('automatically includes unclustered proposals in workshopIdeaGroups and adds late proposals in stage 2', () => {
+      let room = createRoomState();
+      // Submit 2 proposals in stage 1
+      room = submitWorkshopProposal(room, 'c1', 'current-01', 'general', 'Idea 1');
+      room = submitWorkshopProposal(room, 'c2', 'current-02', 'general', 'Idea 2');
+      const prop1Id = Object.keys(room.workshopProposals || {})[0];
+      const prop2Id = Object.keys(room.workshopProposals || {})[1];
+
+      // AI grouping clusters Idea 1, but Idea 2 arrived during grouping and was not in clusters
+      const clusteredGroups: WorkshopIdeaGroup[] = [
+        {
+          id: 'wig_current-01_cluster',
+          currentId: 'current-01',
+          themeTitle: 'Clustered Outreach',
+          proposalIds: [prop1Id],
+          endorsements: [],
+          createdAt: Date.now(),
+        },
+      ];
+
+      room = setWorkshopIdeaGroups(room, clusteredGroups, 'grouped');
+      expect(room.workshopGroupingStatus).toBe('grouped');
+      expect(room.workshopIdeaGroups?.['wig_current-01_cluster']).toBeDefined();
+      // Idea 2 must automatically have a fallback group so it is never omitted
+      const fallbackGroup = Object.values(room.workshopIdeaGroups || {}).find((g) =>
+        g.proposalIds.includes(prop2Id)
+      );
+      expect(fallbackGroup).toBeDefined();
+      expect(fallbackGroup?.currentId).toBe('current-02');
+      expect(fallbackGroup?.themeTitle).toBe('Idea 2');
+
+      // Late submission during Stage 2: immediately added to workshopIdeaGroups for voting
+      room = submitWorkshopProposal(room, 'c3', 'current-03', 'general', 'Late Stage 2 Idea');
+      const prop3 = Object.values(room.workshopProposals || {}).find((p) => p.clientId === 'c3');
+      expect(prop3).toBeDefined();
+      const lateGroup = Object.values(room.workshopIdeaGroups || {}).find((g) =>
+        g.proposalIds.includes(prop3!.id)
+      );
+      expect(lateGroup).toBeDefined();
+      expect(lateGroup?.currentId).toBe('current-03');
+      expect(lateGroup?.themeTitle).toBe('Late Stage 2 Idea');
+    });
+
+    it('toggles group endorsements directly and via applyInboundMessage', () => {
+      let room = createRoomState();
+      const groupId = 'wig_current-02_1';
+      room = setWorkshopIdeaGroups(
+        room,
+        [
+          {
+            id: groupId,
+            currentId: 'current-02',
+            themeTitle: 'Talk Before Prompting',
+            proposalIds: ['p3'],
+            endorsements: [],
+            createdAt: Date.now(),
+          },
+        ],
+        'grouped'
+      );
+
+      // Toggle endorsement on
+      room = toggleGroupEndorsement(room, 'voter1', groupId);
+      expect(room.workshopIdeaGroups?.[groupId].endorsements).toContain('voter1');
+
+      // Toggle off
+      room = toggleGroupEndorsement(room, 'voter1', groupId);
+      expect(room.workshopIdeaGroups?.[groupId].endorsements).not.toContain('voter1');
+
+      // Toggle via applyInboundMessage
+      room = applyInboundMessage(room, {
+        type: 'toggle_group_endorsement',
+        code: room.code,
+        clientId: 'voter2',
+        groupId,
+        timestamp: Date.now(),
+      });
+      expect(room.workshopIdeaGroups?.[groupId].endorsements).toContain('voter2');
+
+      // Non-existent group returns unchanged room
+      const sameRoom = toggleGroupEndorsement(room, 'voter1', 'non-existent');
+      expect(sameRoom).toBe(room);
+    });
+
+    it('groups brainstorm ideas with AI, verifies fingerprint caching, 30s throttle, and fallback on error', async () => {
+      resetIdeaGroupingCacheForTesting();
+
+      const sampleProposals: WorkshopProposal[] = [
+        {
+          id: 'p1',
+          clientId: 'c1',
+          authorName: 'Capybara',
+          currentId: 'current-01',
+          type: 'general',
+          text: 'Send handwritten note for major team milestones',
+          endorsements: [],
+          createdAt: 1000,
+        },
+        {
+          id: 'p2',
+          clientId: 'c2',
+          authorName: 'Dolphin',
+          currentId: 'current-01',
+          type: 'general',
+          text: 'Personal call directly instead of automated email',
+          endorsements: [],
+          createdAt: 1001,
+        },
+        {
+          id: 'p3',
+          clientId: 'c3',
+          authorName: 'Eagle',
+          currentId: 'current-02',
+          type: 'general',
+          text: 'Talk with teammate before asking AI',
+          endorsements: [],
+          createdAt: 1002,
+        },
+      ];
+
+      // Missing API key -> returns unavailable
+      const noKeyRes = await groupWorkshopIdeasWithAI(sampleProposals, { apiKey: '' });
+      expect(noKeyRes.status).toBe('unavailable');
+      expect(noKeyRes.groups).toHaveLength(0);
+
+      // Mock fetchImpl returning successful clustering
+      const mockFetch = async () => {
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    {
+                      text: JSON.stringify({
+                        groups: [
+                          {
+                            currentId: 'current-01',
+                            themeTitle: 'Direct Personal Reachouts',
+                            proposalIds: ['p1', 'p2'],
+                          },
+                        ],
+                      }),
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        } as unknown as Response;
+      };
+
+      const now = 100000;
+      const res = await groupWorkshopIdeasWithAI(sampleProposals, {
+        apiKey: 'test-key',
+        fetchImpl: mockFetch as unknown as typeof fetch,
+        now,
+      });
+
+      expect(res.status).toBe('grouped');
+      expect(res.groups).toHaveLength(2); // 1 clustered group for current-01, 1 fallback singleton for p3 (current-02)
+      expect(res.groups[0].themeTitle).toBe('Direct Personal Reachouts');
+      expect(res.groups[0].proposalIds).toEqual(['p1', 'p2']);
+      expect(res.groups[1].currentId).toBe('current-02');
+      expect(res.groups[1].proposalIds).toEqual(['p3']);
+
+      // Repeated call with same proposals hits cache
+      const cachedRes = await groupWorkshopIdeasWithAI(sampleProposals, {
+        apiKey: 'test-key',
+        now: now + 5000,
+      });
+      expect(cachedRes.status).toBe('grouped');
+      expect(cachedRes.fromCache).toBe(true);
+
+      // Throttling: call with different proposals before 30s passes returns throttled
+      const differentProposals: WorkshopProposal[] = [
+        ...sampleProposals,
+        {
+          id: 'p4',
+          clientId: 'c4',
+          authorName: 'Fox',
+          currentId: 'current-03',
+          type: 'general',
+          text: 'Jot down thoughts first',
+          endorsements: [],
+          createdAt: 1003,
+        },
+      ];
+
+      const throttledRes = await groupWorkshopIdeasWithAI(differentProposals, {
+        apiKey: 'test-key',
+        now: now + 10000, // only 10s later
+      });
+      expect(throttledRes.status).toBe('unavailable');
+      expect(throttledRes.throttled).toBe(true);
+
+      // HTTP 429 response handles gracefully
+      const mock429Fetch = async () => ({ ok: false, status: 429 } as Response);
+      const errorRes = await groupWorkshopIdeasWithAI(differentProposals, {
+        apiKey: 'test-key',
+        fetchImpl: mock429Fetch as unknown as typeof fetch,
+        force: true,
+      });
+      expect(errorRes.status).toBe('unavailable');
+      expect(errorRes.groups).toHaveLength(0);
+    });
+
+    it('formats short join link and base join domain cleanly', () => {
+      expect(formatShortJoinLink('https://example.com/ai-effect/?code=WARM')).toBe(
+        'example.com/ai-effect/?code=WARM'
+      );
+      expect(formatShortJoinLink('http://example.com/ai-effect/')).toBe('example.com/ai-effect');
+      expect(formatBaseJoinDomain('https://example.com/ai-effect/?code=WARM')).toBe(
+        'example.com/ai-effect'
+      );
     });
   });
 });

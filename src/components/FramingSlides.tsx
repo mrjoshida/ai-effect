@@ -23,15 +23,10 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
   const synthesis = computeCurrentsSynthesis(room);
 
   // ---------------------------------------------------------------------------
-  // MODE: OPENING FRAMING (3 Slides)
+  // MODE: OPENING FRAMING (1 Slide)
   // ---------------------------------------------------------------------------
   if (mode === 'opening') {
-    const totalSlides = 3;
-    const slideLabels = [
-      'Capacity for What?',
-      'Protected Human Core',
-      'Our Distinctive Role',
-    ];
+    const totalSlides = 1;
 
     return (
       <div
@@ -61,7 +56,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
             <span
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.8rem',
+                fontSize: '0.9rem',
                 fontWeight: 700,
                 color: 'var(--currents-teal)',
                 textTransform: 'uppercase',
@@ -70,431 +65,165 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
             >
               Session Framing
             </span>
-            <span style={{ color: 'var(--border-strong)' }}>•</span>
-            <span style={{ fontSize: '0.84rem', color: 'var(--ink-secondary)', fontFamily: 'var(--font-mono)' }}>
-              Slide {activeSlide + 1} of {totalSlides}
-            </span>
-          </div>
-
-          {/* Slide Pill Tabs */}
-          <div
-            style={{
-              display: 'inline-flex',
-              backgroundColor: 'var(--bg-tray)',
-              padding: '0.25rem',
-              borderRadius: 'var(--radius-full)',
-              border: '1px solid var(--border-default)',
-              gap: '0.2rem',
-            }}
-          >
-            {slideLabels.map((label, idx) => (
-              <button
-                key={idx}
-                id={`opening-slide-tab-${idx}`}
-                onClick={() => onSelectSlide(idx)}
-                className={activeSlide === idx ? 'btn-primary' : 'btn-ghost'}
-                style={{
-                  fontSize: '0.82rem',
-                  padding: '0.35rem 0.85rem',
-                  borderRadius: 'var(--radius-full)',
-                }}
-              >
-                {idx + 1}. {label}
-              </button>
-            ))}
           </div>
 
           {/* Stepper Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <button
               id="prev-slide-btn"
-              onClick={() => {
-                if (activeSlide > 0) onSelectSlide(activeSlide - 1);
-                else onBack?.();
-              }}
+              onClick={() => onBack?.()}
               className="btn-secondary"
-              style={{ fontSize: '0.82rem', padding: '0.35rem 0.85rem' }}
+              style={{ fontSize: '0.92rem', padding: '0.45rem 1.1rem' }}
             >
-              ← Prev
+              ← Lobby
             </button>
-            {activeSlide < totalSlides - 1 ? (
-              <button
-                id="next-slide-btn"
-                onClick={() => onSelectSlide(activeSlide + 1)}
-                className="btn-primary"
-                style={{ fontSize: '0.82rem', padding: '0.35rem 0.85rem' }}
-              >
-                Next →
-              </button>
-            ) : (
-              <button
-                id="complete-framing-btn"
-                onClick={onComplete}
-                className="btn-primary"
-                style={{
-                  fontSize: '0.82rem',
-                  padding: '0.35rem 1rem',
-                  backgroundColor: 'var(--stance-support)',
-                }}
-              >
-                Start Scenario 1 →
-              </button>
-            )}
+            <button
+              id="complete-framing-btn"
+              onClick={onComplete}
+              className="btn-primary"
+              style={{
+                fontSize: '0.92rem',
+                padding: '0.45rem 1.1rem',
+                backgroundColor: 'var(--stance-support)',
+              }}
+            >
+              Start Scenario 1 →
+            </button>
           </div>
         </div>
 
-        {/* Slide 0: AI: Capacity for What? */}
-        {activeSlide === 0 && (
+        {/* Single Focused Slide */}
+        <div
+          className="card-tabletop animate-pebble-drop"
+          style={{
+            padding: '2.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2rem',
+            borderTop: '5px solid var(--stance-support)',
+          }}
+        >
+          <div>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.92rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                color: 'var(--stance-support-text)',
+              }}
+            >
+              Session Framing
+            </span>
+            <h1 style={{ fontSize: '2.65rem', margin: '0.4rem 0 0.8rem 0', lineHeight: 1.2 }}>
+              AI and Our Human Relationships
+            </h1>
+            <p
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '1.32rem',
+                color: 'var(--ink-secondary)',
+                lineHeight: 1.55,
+                maxWidth: '1040px',
+                margin: 0,
+              }}
+            >
+              AI is changing how quickly we work—but the deeper question is how it shapes the way we relate to one another. In this session, we'll dig deep into the impact of AI on our human relationships: where it supports connection, where it quietly erodes it, and how we protect what matters most.
+            </p>
+          </div>
+
           <div
-            className="card-tabletop animate-pebble-drop"
             style={{
-              padding: '2.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '2rem',
-              borderTop: '5px solid var(--currents-teal)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(300px, 1fr))',
+              gap: '1.25rem',
             }}
           >
-            <div>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--currents-teal)',
-                }}
-              >
-                Human-Centered AI in Philanthropy
-              </span>
-              <h1 style={{ fontSize: '2.4rem', margin: '0.4rem 0 0.8rem 0', lineHeight: 1.2 }}>
-                AI: Capacity for What?
-              </h1>
-              <p
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '1.25rem',
-                  fontStyle: 'italic',
-                  color: 'var(--ink-secondary)',
-                  lineHeight: 1.5,
-                  maxWidth: '920px',
-                  margin: 0,
-                }}
-              >
-                "AI can help us become more efficient. But efficiency isn't the destination.
-                The more capable our technology becomes, the more valuable the human parts of our work become."
+            <div
+              style={{
+                backgroundColor: 'var(--bg-card-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1.5rem 1.75rem',
+                borderLeft: '4px solid var(--stance-support)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <h3 style={{ fontSize: '1.32rem', margin: '0 0 0.45rem 0', color: 'var(--stance-support-text)' }}>
+                1. Empathy — Genuine Human Presence
+              </h3>
+              <p style={{ fontSize: '1.06rem', color: 'var(--ink-secondary)', lineHeight: 1.5, margin: 0 }}>
+                Showing up for one another with real compassion and care. Empathy cannot be simulated or outsourced to automated systems.
               </p>
             </div>
 
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-                gap: '1.5rem',
+                backgroundColor: 'var(--bg-card-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1.5rem 1.75rem',
+                borderLeft: '4px solid var(--stance-depends)',
+                border: '1px solid var(--border-subtle)',
               }}
             >
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-tray)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '1.75rem',
-                  border: '1.5px solid var(--border-default)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.76rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    color: 'var(--ink-muted)',
-                  }}
-                >
-                  First-Order Efficiency
-                </span>
-                <h3 style={{ fontSize: '1.35rem', margin: 0, color: 'var(--ink-primary)' }}>
-                  Automate &amp; Understand
-                </h3>
-                <p style={{ fontSize: '0.94rem', color: 'var(--ink-secondary)', lineHeight: 1.5, margin: 0 }}>
-                  Using AI to synthesize information, analyze portfolios, draft content, and free up time spent
-                  moving and processing data.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: 'var(--currents-teal-tint)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '1.75rem',
-                  border: '1.5px solid var(--currents-teal-border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '0.76rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    color: 'var(--currents-teal)',
-                  }}
-                >
-                  The Real Destination
-                </span>
-                <h3 style={{ fontSize: '1.35rem', margin: 0, color: 'var(--currents-teal)' }}>
-                  Meaningful Progress
-                </h3>
-                <p style={{ fontSize: '0.94rem', color: 'var(--ink-primary)', lineHeight: 1.5, margin: 0 }}>
-                  Shifting our question from <em>"How much activity can we generate?"</em> to{' '}
-                  <em>"How much lasting progress can we make possible together?"</em>
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Slide 1: Defining the Protected Human Core */}
-        {activeSlide === 1 && (
-          <div
-            className="card-tabletop animate-pebble-drop"
-            style={{
-              padding: '2.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.75rem',
-              borderTop: '5px solid var(--stance-support)',
-            }}
-          >
-            <div>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--stance-support-text)',
-                }}
-              >
-                What We Never Outsource
-              </span>
-              <h1 style={{ fontSize: '2.4rem', margin: '0.4rem 0 0.4rem 0', lineHeight: 1.2 }}>
-                Defining the Protected Human Core
-              </h1>
-              <p style={{ fontSize: '1.05rem', color: 'var(--ink-secondary)', margin: 0 }}>
-                As automation expands, we establish clear boundaries around four uniquely human strengths:
+              <h3 style={{ fontSize: '1.32rem', margin: '0 0 0.45rem 0', color: 'var(--stance-depends-text)' }}>
+                2. Judgment — Ethical &amp; Contextual Discernment
+              </h3>
+              <p style={{ fontSize: '1.06rem', color: 'var(--ink-secondary)', lineHeight: 1.5, margin: 0 }}>
+                Working through complex ethical trade-offs, creative choices, and human nuance together rather than defaulting to an algorithm.
               </p>
             </div>
 
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, minmax(300px, 1fr))',
-                gap: '1.25rem',
+                backgroundColor: 'var(--bg-card-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1.5rem 1.75rem',
+                borderLeft: '4px solid var(--currents-teal)',
+                border: '1px solid var(--border-subtle)',
               }}
             >
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem 1.5rem',
-                  borderLeft: '4px solid var(--stance-support)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <h3 style={{ fontSize: '1.15rem', margin: '0 0 0.35rem 0', color: 'var(--stance-support-text)' }}>
-                  1. Empathy — Human-to-Human Connection
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', lineHeight: 1.45, margin: 0 }}>
-                  Establish boundaries that preserve genuine compassion. Empathy cannot be simulated or outsourced to automated systems.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem 1.5rem',
-                  borderLeft: '4px solid var(--stance-depends)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <h3 style={{ fontSize: '1.15rem', margin: '0 0 0.35rem 0', color: 'var(--stance-depends-text)' }}>
-                  2. Judgment — Creative &amp; Ethical Choices
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', lineHeight: 1.45, margin: 0 }}>
-                  Complex ethical reasoning, creative breakthroughs, and philosophical trade-offs remain uniquely and fully within the human domain.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem 1.5rem',
-                  borderLeft: '4px solid var(--currents-teal)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <h3 style={{ fontSize: '1.15rem', margin: '0 0 0.35rem 0', color: 'var(--currents-teal)' }}>
-                  3. Trust — Earning Credibility
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', lineHeight: 1.45, margin: 0 }}>
-                  Our work fails if we don't earn and maintain the trust of the communities we serve—built through shared accountability, transparency, and vulnerability.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem 1.5rem',
-                  borderLeft: '4px solid var(--stance-erode)',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <h3 style={{ fontSize: '1.15rem', margin: '0 0 0.35rem 0', color: 'var(--stance-erode-text)' }}>
-                  4. Relationships — Interpersonal Bonds
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', lineHeight: 1.45, margin: 0 }}>
-                  Nurturing partnerships across communities. Collaborative networks thrive on mutual respect and shared human experiences that must never be automated.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Slide 2: Reclaiming Time for Our Distinctive Role */}
-        {activeSlide === 2 && (
-          <div
-            className="card-tabletop animate-pebble-drop"
-            style={{
-              padding: '2.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.75rem',
-              borderTop: '5px solid var(--currents-teal)',
-            }}
-          >
-            <div>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.82rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--currents-teal)',
-                }}
-              >
-                Reclaim &amp; Reinvest Time
-              </span>
-              <h1 style={{ fontSize: '2.4rem', margin: '0.4rem 0 0.4rem 0', lineHeight: 1.2 }}>
-                Four Things We Do in Service of Progress
-              </h1>
-              <p style={{ fontSize: '1.05rem', color: 'var(--ink-secondary)', margin: 0 }}>
-                Where technology gives us back time, we reinvest it into the human catalyst roles that only people can fulfill:
+              <h3 style={{ fontSize: '1.32rem', margin: '0 0 0.45rem 0', color: 'var(--currents-teal)' }}>
+                3. Trust — Earned Credibility
+              </h3>
+              <p style={{ fontSize: '1.06rem', color: 'var(--ink-secondary)', lineHeight: 1.5, margin: 0 }}>
+                Building and maintaining trust with colleagues, partners, and communities through honesty, transparency, and vulnerability.
               </p>
             </div>
 
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, minmax(300px, 1fr))',
-                gap: '1.25rem',
+                backgroundColor: 'var(--bg-card-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1.5rem 1.75rem',
+                borderLeft: '4px solid var(--stance-erode)',
+                border: '1px solid var(--border-subtle)',
               }}
             >
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem 1.5rem',
-                  border: '1px solid var(--border-default)',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
-              >
-                <h3 style={{ fontSize: '1.2rem', margin: '0 0 0.35rem 0', color: 'var(--ink-primary)' }}>
-                  1. Steward
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', lineHeight: 1.45, margin: 0 }}>
-                  Making disciplined, principled choices with finite resources; understanding tradeoffs and asking tough questions.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem 1.5rem',
-                  border: '1px solid var(--border-default)',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
-              >
-                <h3 style={{ fontSize: '1.2rem', margin: '0 0 0.35rem 0', color: 'var(--ink-primary)' }}>
-                  2. Connect
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', lineHeight: 1.45, margin: 0 }}>
-                  Bridging people and ideas across partners and communities; spending more time listening to those closest to the work.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem 1.5rem',
-                  border: '1px solid var(--border-default)',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
-              >
-                <h3 style={{ fontSize: '1.2rem', margin: '0 0 0.35rem 0', color: 'var(--ink-primary)' }}>
-                  3. Amplify
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', lineHeight: 1.45, margin: 0 }}>
-                  Scaling what works through convening power, shared research, and lifting up practitioner voices.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem 1.5rem',
-                  border: '1px solid var(--border-default)',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
-              >
-                <h3 style={{ fontSize: '1.2rem', margin: '0 0 0.35rem 0', color: 'var(--ink-primary)' }}>
-                  4. Anticipate
-                </h3>
-                <p style={{ fontSize: '0.9rem', color: 'var(--ink-secondary)', lineHeight: 1.45, margin: 0 }}>
-                  Looking around corners together as skills, work, and technology evolve to prepare communities for tomorrow.
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-              <button
-                id="complete-framing-btn"
-                onClick={onComplete}
-                className="btn-primary"
-                style={{
-                  padding: '0.85rem 1.75rem',
-                  fontSize: '1.05rem',
-                  backgroundColor: 'var(--stance-support)',
-                }}
-              >
-                Start Scenario 1 →
-              </button>
+              <h3 style={{ fontSize: '1.32rem', margin: '0 0 0.45rem 0', color: 'var(--stance-erode-text)' }}>
+                4. Relationships — Interpersonal Bonds
+              </h3>
+              <p style={{ fontSize: '1.06rem', color: 'var(--ink-secondary)', lineHeight: 1.5, margin: 0 }}>
+                Nurturing the mutual respect, shared experiences, and human connections at the heart of our work and lives.
+              </p>
             </div>
           </div>
-        )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <button
+              id="start-scenario-1-bottom-btn"
+              onClick={onComplete}
+              className="btn-primary"
+              style={{
+                fontSize: '1.05rem',
+                padding: '0.75rem 1.65rem',
+                backgroundColor: 'var(--stance-support)',
+              }}
+            >
+              Start Scenario 1 →
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -573,8 +302,8 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
               onClick={() => onSelectSlide(idx)}
               className={activeSlide === idx ? 'btn-primary' : 'btn-ghost'}
               style={{
-                fontSize: '0.78rem',
-                padding: '0.35rem 0.75rem',
+                fontSize: '0.86rem',
+                padding: '0.4rem 0.85rem',
                 borderRadius: 'var(--radius-full)',
               }}
             >
@@ -592,7 +321,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
               else onBack?.();
             }}
             className="btn-secondary"
-            style={{ fontSize: '0.82rem', padding: '0.35rem 0.85rem' }}
+            style={{ fontSize: '0.92rem', padding: '0.45rem 1.1rem' }}
           >
             ← Prev
           </button>
@@ -601,7 +330,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
               id="next-slide-btn"
               onClick={() => onSelectSlide(activeSlide + 1)}
               className="btn-primary"
-              style={{ fontSize: '0.82rem', padding: '0.35rem 0.85rem' }}
+              style={{ fontSize: '0.92rem', padding: '0.45rem 1.1rem' }}
             >
               Next →
             </button>
@@ -611,12 +340,12 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
               onClick={onComplete}
               className="btn-primary"
               style={{
-                fontSize: '0.82rem',
-                padding: '0.35rem 1rem',
+                fontSize: '0.92rem',
+                padding: '0.45rem 1.1rem',
                 backgroundColor: 'var(--currents-teal)',
               }}
             >
-              Launch Small-Group Workshop →
+              Start Brainstorm →
             </button>
           )}
         </div>
@@ -659,17 +388,17 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                 <ExternalLinkIcon size={11} />
               </a>
             </div>
-            <h1 style={{ fontSize: '2.4rem', margin: '0.2rem 0 0.8rem 0', lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: '2.65rem', margin: '0.2rem 0 0.8rem 0', lineHeight: 1.2 }}>
               The Four Currents
             </h1>
             <p
               style={{
                 fontFamily: 'var(--font-serif)',
-                fontSize: '1.2rem',
+                fontSize: '1.32rem',
                 fontStyle: 'italic',
                 color: 'var(--ink-secondary)',
-                lineHeight: 1.5,
-                maxWidth: '920px',
+                lineHeight: 1.55,
+                maxWidth: '1040px',
                 margin: 0,
               }}
             >
@@ -693,7 +422,8 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                 style={{
                   backgroundColor: 'var(--bg-tray)',
                   borderRadius: 'var(--radius-lg)',
-                  padding: '1.5rem',
+                  padding: '1.85rem 1.6rem',
+                  minHeight: '190px',
                   border: '1.5px solid var(--border-default)',
                   display: 'flex',
                   flexDirection: 'column',
@@ -705,7 +435,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '0.78rem',
+                    fontSize: '0.92rem',
                     fontWeight: 700,
                     color: 'var(--currents-teal)',
                     textTransform: 'uppercase',
@@ -713,13 +443,10 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                 >
                   {bucket.current.number}
                 </span>
-                <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--ink-primary)' }}>
+                <h3 style={{ fontSize: '1.45rem', margin: 0, color: 'var(--ink-primary)', lineHeight: 1.25 }}>
                   {bucket.current.title}
                 </h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--ink-secondary)', fontStyle: 'italic', margin: 0 }}>
-                  "{bucket.current.subtitle}"
-                </p>
-                <div style={{ marginTop: 'auto', paddingTop: '0.5rem', fontSize: '0.78rem', color: 'var(--currents-teal)', fontWeight: 600 }}>
+                <div style={{ marginTop: 'auto', paddingTop: '0.5rem', fontSize: '0.92rem', color: 'var(--currents-teal)', fontWeight: 600 }}>
                   Explore Current →
                 </div>
               </div>
@@ -728,7 +455,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
         </div>
       )}
 
-      {/* Slides 1–4: One Slide per Current with Connected Scenarios from Part 1 */}
+      {/* Slides 1–4: One Slide per Current with Related Scenarios */}
       {activeSlide >= 1 && activeSlide <= 4 && (() => {
         const bucket = synthesis[activeSlide - 1];
         if (!bucket) return null;
@@ -755,7 +482,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                   <span
                     style={{
                       fontFamily: 'var(--font-mono)',
-                      fontSize: '0.82rem',
+                      fontSize: '0.9rem',
                       fontWeight: 700,
                       color: 'var(--currents-teal)',
                       textTransform: 'uppercase',
@@ -774,10 +501,10 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                     <ExternalLinkIcon size={10} />
                   </a>
                 </div>
-                <h2 style={{ fontSize: '1.85rem', margin: '0 0 0.35rem 0', lineHeight: 1.2 }}>
+                <h2 style={{ fontSize: '2.15rem', margin: '0 0 0.35rem 0', lineHeight: 1.2 }}>
                   {current.title}
                 </h2>
-                <p style={{ fontSize: '0.94rem', fontStyle: 'italic', color: 'var(--ink-secondary)', margin: 0 }}>
+                <p style={{ fontSize: '1.12rem', fontStyle: 'italic', color: 'var(--ink-secondary)', margin: 0, lineHeight: 1.45 }}>
                   "{current.subtitle}"
                 </p>
               </div>
@@ -787,9 +514,9 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                 style={{
                   backgroundColor: 'var(--bg-tray)',
                   borderRadius: 'var(--radius-md)',
-                  padding: '1rem 1.25rem',
-                  fontSize: '0.9rem',
-                  lineHeight: 1.5,
+                  padding: '1.15rem 1.35rem',
+                  fontSize: '1.04rem',
+                  lineHeight: 1.55,
                   color: 'var(--ink-primary)',
                   borderLeft: '4px solid var(--currents-teal)',
                 }}
@@ -805,13 +532,13 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                 style={{
                   backgroundColor: 'var(--currents-teal-tint)',
                   borderRadius: 'var(--radius-md)',
-                  padding: '1rem 1.25rem',
+                  padding: '1.15rem 1.35rem',
                   border: '1px solid var(--currents-teal-border)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.6rem',
-                  fontSize: '0.88rem',
-                  lineHeight: 1.45,
+                  fontSize: '1.02rem',
+                  lineHeight: 1.5,
                 }}
               >
                 <div>
@@ -828,10 +555,10 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
             {/* Right Column: How This Current Showed Up in Our Scenarios */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <h3 style={{ fontSize: '1.2rem', margin: 0 }}>
-                  How This Current Showed Up in Our Scenarios
+                <h3 style={{ fontSize: '1.35rem', margin: 0 }}>
+                  Related Scenarios
                 </h3>
-                <span style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', fontFamily: 'var(--font-mono)' }}>
+                <span style={{ fontSize: '0.88rem', color: 'var(--ink-muted)', fontFamily: 'var(--font-mono)' }}>
                   {playedItems.length > 0
                     ? `${playedItems.length} played (${items.length} in deck)`
                     : `${items.length} ${items.length === 1 ? 'scenario' : 'scenarios'} in deck`}
@@ -883,10 +610,10 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                           <div>
-                            <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', color: 'var(--ink-muted)' }}>
+                            <span style={{ fontSize: '0.78rem', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', color: 'var(--ink-muted)' }}>
                               {CATEGORY_META[item.scenario.category]?.shortLabel || item.scenario.category}
                             </span>
-                            <h4 style={{ fontSize: '1rem', margin: '0.1rem 0 0 0' }}>
+                            <h4 style={{ fontSize: '1.15rem', margin: '0.1rem 0 0 0' }}>
                               {item.scenario.title}
                             </h4>
                           </div>
@@ -898,7 +625,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                           )}
                         </div>
 
-                        <p style={{ fontSize: '0.84rem', color: 'var(--ink-secondary)', margin: 0, lineHeight: 1.4 }}>
+                        <p style={{ fontSize: '0.98rem', color: 'var(--ink-secondary)', margin: 0, lineHeight: 1.45 }}>
                           {item.scenario.mobileSummary}
                         </p>
 
@@ -917,7 +644,7 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                               )}
                             </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', fontFamily: 'var(--font-mono)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.84rem', fontFamily: 'var(--font-mono)' }}>
                               <span style={{ color: 'var(--ink-muted)' }}>
                                 {item.tally.support}S • {item.tally.depends}D • {item.tally.erode}E ({item.tally.total} votes)
                               </span>
@@ -936,11 +663,11 @@ export const FramingSlides: React.FC<FramingSlidesProps> = ({
                                   <div
                                     key={nIdx}
                                     style={{
-                                      fontSize: '0.76rem',
+                                      fontSize: '0.92rem',
                                       color: 'var(--ink-secondary)',
                                       fontStyle: 'italic',
                                       backgroundColor: '#FFFDF9',
-                                      padding: '0.25rem 0.5rem',
+                                      padding: '0.4rem 0.65rem',
                                       borderRadius: 'var(--radius-sm)',
                                       border: '1px solid var(--border-subtle)',
                                     }}

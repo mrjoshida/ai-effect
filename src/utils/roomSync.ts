@@ -19,10 +19,11 @@ export interface ClientRoomChannel {
   sendVote: (scenarioId: string, stance: Stance, note?: string) => void;
   sendProposal: (
     currentId: RithmCurrentId,
-    proposalType: WorkshopProposalType,
+    proposalType: WorkshopProposalType | undefined,
     text: string
   ) => void;
   sendToggleEndorsement: (proposalId: string) => void;
+  sendToggleGroupEndorsement: (groupId: string) => void;
   requestState: () => void;
   getStatus: () => SyncConnectionStatus;
   destroy: () => void;
@@ -99,9 +100,11 @@ export function createHostChannel(
       msg.type === 'vote'
         ? msg.scenarioId + ':' + msg.stance
         : msg.type === 'submit_proposal'
-        ? msg.currentId + ':' + msg.proposalType
+        ? msg.currentId + ':' + (msg.proposalType || 'general')
         : msg.type === 'toggle_endorsement'
         ? msg.proposalId
+        : msg.type === 'toggle_group_endorsement'
+        ? msg.groupId
         : ''
     }`;
     const now = Date.now();
@@ -288,6 +291,11 @@ export function createClientChannel(
     }
   };
 
+  const pendingQueue: ClientInboundMessage[] = [];
+  let lastJoinName: string | undefined = undefined;
+  let hasJoined = false;
+  let lastJoinResendAt = 0;
+
   let lastStateUpdatedAt = 0;
   const handleStateSafe = (state: RoomState) => {
     if (!state || state.code !== cleanCode) return;
@@ -296,6 +304,16 @@ export function createClientChannel(
     }
     lastStateUpdatedAt = state.updatedAt;
     onStateUpdate(state);
+
+    if (
+      hasJoined &&
+      state.participants &&
+      !state.participants[clientId] &&
+      Date.now() - lastJoinResendAt > 1500
+    ) {
+      lastJoinResendAt = Date.now();
+      sendJoin(lastJoinName);
+    }
   };
 
   // Register with in-memory bus
@@ -339,6 +357,30 @@ export function createClientChannel(
       mqttClient.on('connect', () => {
         updateStatus('connected');
         mqttClient?.subscribe(stateTopic, { qos: 1 });
+        while (pendingQueue.length > 0) {
+          const queuedMsg = pendingQueue.shift();
+          if (queuedMsg) {
+            try {
+              mqttClient?.publish(inboxTopic, JSON.stringify(queuedMsg), { qos: 1 });
+            } catch {
+              // Ignore
+            }
+          }
+        }
+        if (hasJoined) {
+          try {
+            const reconnectJoin: ClientInboundMessage = {
+              type: 'join',
+              code: cleanCode,
+              clientId,
+              name: lastJoinName,
+              timestamp: Date.now(),
+            };
+            mqttClient?.publish(inboxTopic, JSON.stringify(reconnectJoin), { qos: 1 });
+          } catch {
+            // Ignore
+          }
+        }
       });
 
       mqttClient.on('reconnect', () => {
@@ -396,10 +438,14 @@ export function createClientChannel(
       } catch {
         // Ignore
       }
+    } else {
+      pendingQueue.push(msg);
     }
   };
 
   const sendJoin = (name?: string) => {
+    hasJoined = true;
+    if (name !== undefined) lastJoinName = name;
     sendInbound({
       type: 'join',
       code: cleanCode,
@@ -423,7 +469,7 @@ export function createClientChannel(
 
   const sendProposal = (
     currentId: RithmCurrentId,
-    proposalType: WorkshopProposalType,
+    proposalType: WorkshopProposalType | undefined,
     text: string
   ) => {
     sendInbound({
@@ -431,7 +477,7 @@ export function createClientChannel(
       code: cleanCode,
       clientId,
       currentId,
-      proposalType,
+      proposalType: proposalType || 'general',
       text,
       timestamp: Date.now(),
     });
@@ -447,6 +493,16 @@ export function createClientChannel(
     });
   };
 
+  const sendToggleGroupEndorsement = (groupId: string) => {
+    sendInbound({
+      type: 'toggle_group_endorsement',
+      code: cleanCode,
+      clientId,
+      groupId,
+      timestamp: Date.now(),
+    });
+  };
+
   const requestState = () => {
     sendInbound({
       type: 'request_state',
@@ -458,6 +514,7 @@ export function createClientChannel(
 
   const destroy = () => {
     bus.stateListeners.delete(handleStateSafe);
+    pendingQueue.length = 0;
     if (bc) {
       try {
         bc.close();
@@ -484,6 +541,7 @@ export function createClientChannel(
     sendVote,
     sendProposal,
     sendToggleEndorsement,
+    sendToggleGroupEndorsement,
     requestState,
     getStatus: () => currentStatus,
     destroy,
