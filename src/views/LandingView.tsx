@@ -178,7 +178,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
         <p style={{ fontSize: '1.15rem', color: 'var(--ink-secondary)', maxWidth: '720px', lineHeight: 1.5 }}>
           As we work to automate more workflows in grantmaking and social impact with AI, the hard question moves 
-          from where <em>could</em> we use AI to where <em>must</em> we 
+          from where <em>could</em> we use AI to where <em>should</em> we 
           work to build, protect, and invest in genuine human connection?
         </p>
       </section>
