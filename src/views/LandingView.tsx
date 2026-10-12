@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pebble } from '../components/Pebble';
 import { CustomDeckOptions, DeckPresetId, RithmCurrentId, ScenarioCategory } from '../types/game';
-import { PhoneIcon, ScreenIcon, SlidersIcon } from '../components/Icons';
+import { CheckIcon, PhoneIcon, ScreenIcon, SlidersIcon, SparkIcon } from '../components/Icons';
 import { CATEGORY_LIST, getMatchingScenariosPool } from '../content/scenarios';
+import { getConfiguredAiKey, setConfiguredAiKey } from '../utils/ideaGrouping';
 
 export interface LandingViewProps {
   onJoinRoom: (code: string, name?: string) => void;
@@ -22,6 +23,9 @@ export const LandingView: React.FC<LandingViewProps> = ({
   const [joinCode, setJoinCode] = useState(initialCode.toUpperCase());
   const [joinName, setJoinName] = useState('');
   const [hostCustomCode, setHostCustomCode] = useState('');
+  const [aiKey, setAiKey] = useState<string>(() => getConfiguredAiKey());
+  const [isEditingKey, setIsEditingKey] = useState<boolean>(false);
+  const [keyInputVal, setKeyInputVal] = useState<string>('');
 
   // Custom Builder State
   const [showCustomBuilder, setShowCustomBuilder] = useState(false);
@@ -365,6 +369,181 @@ export const LandingView: React.FC<LandingViewProps> = ({
                   color: 'var(--ink-primary)',
                 }}
               />
+            </div>
+
+            {/* Optional Idea Grouping Key for clustering workshop proposals */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label
+                htmlFor="host-ai-key-input"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--ink-muted)',
+                  marginBottom: '0.3rem',
+                }}
+              >
+                <SparkIcon size={13} style={{ color: 'var(--currents-teal)' }} />
+                <span>Idea Grouping Key (Optional)</span>
+              </label>
+
+              {aiKey && !isEditingKey ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.45rem 0.75rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.8rem',
+                      color: 'var(--stance-support)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <CheckIcon size={12} />
+                    <span>Saved on this browser (groups similar brainstorm ideas)</span>
+                  </div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <button
+                      id="change-ai-key-btn"
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => {
+                        setKeyInputVal(aiKey);
+                        setIsEditingKey(true);
+                      }}
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '0.2rem 0.45rem',
+                        color: 'var(--ink-secondary)',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Change
+                    </button>
+                    <button
+                      id="clear-ai-key-btn"
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => {
+                        setConfiguredAiKey('');
+                        setAiKey('');
+                        setKeyInputVal('');
+                        setIsEditingKey(false);
+                      }}
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '0.2rem 0.45rem',
+                        color: 'var(--ink-muted)',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <input
+                      id="host-ai-key-input"
+                      type="password"
+                      value={keyInputVal}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setKeyInputVal(val);
+                        setConfiguredAiKey(val);
+                        if (!val.trim()) {
+                          setAiKey('');
+                        }
+                      }}
+                      onBlur={() => {
+                        const trimmed = keyInputVal.trim();
+                        setConfiguredAiKey(trimmed);
+                        setAiKey(trimmed);
+                        if (isEditingKey) {
+                          setIsEditingKey(false);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const trimmed = keyInputVal.trim();
+                          setConfiguredAiKey(trimmed);
+                          setAiKey(trimmed);
+                          setIsEditingKey(false);
+                        }
+                      }}
+                      placeholder="Paste AI Studio key to group similar ideas"
+                      autoComplete="off"
+                      style={{
+                        width: '100%',
+                        padding: '0.55rem 0.8rem',
+                        fontSize: '0.88rem',
+                        fontFamily: 'var(--font-mono)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-default)',
+                        backgroundColor: '#FFFDF9',
+                        color: 'var(--ink-primary)',
+                      }}
+                    />
+                    {isEditingKey && (
+                      <button
+                        id="save-ai-key-btn"
+                        type="button"
+                        className="btn-secondary"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const trimmed = keyInputVal.trim();
+                          setConfiguredAiKey(trimmed);
+                          setAiKey(trimmed);
+                          setIsEditingKey(false);
+                        }}
+                        onClick={() => {
+                          const trimmed = keyInputVal.trim();
+                          setConfiguredAiKey(trimmed);
+                          setAiKey(trimmed);
+                          setIsEditingKey(false);
+                        }}
+                        style={{
+                          padding: '0.5rem 0.8rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Save
+                      </button>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.73rem',
+                      color: 'var(--ink-muted)',
+                      marginTop: '0.35rem',
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    Stored only in your browser. If left blank, ideas are voted on directly without grouping.
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>

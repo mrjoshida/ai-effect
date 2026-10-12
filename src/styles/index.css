@@ -81,7 +81,7 @@
   --radius-full: 9999px;
 
   /* Layout dimensions */
-  --max-width-stage: 1380px;
+  --max-width-stage: 1480px;
   --max-width-mobile: 480px;
   --header-height: 64px;
 }
@@ -490,7 +490,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   background-color: var(--bg-card);
   border: 1.5px solid var(--border-default);
   border-radius: var(--radius-md);
-  padding: 0.85rem 1rem;
+  padding: 1rem 1.15rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -614,7 +614,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
   align-items: center;
   gap: 0.5rem;
   font-family: var(--font-sans);
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -624,10 +624,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible {
 
 .twist-banner-body {
   font-family: var(--font-serif);
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   color: var(--ink-primary);
   line-height: 1.45;
   font-weight: 600;
+}
+
+/* Projector readability for ResponseGraph participant notes */
+.response-graph .stance-column-card div[style*="maxHeight: 180px"] > div,
+.response-graph .stance-column-card div[style*="max-height: 180px"] > div {
+  font-size: 1.02rem !important;
+  line-height: 1.45 !important;
+}
+.response-graph .stance-column-card div[style*="maxHeight: 180px"] > div > span:first-child,
+.response-graph .stance-column-card div[style*="max-height: 180px"] > div > span:first-child {
+  font-size: 0.86rem !important;
 }
 
 /* Animations */

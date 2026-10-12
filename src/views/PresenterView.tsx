@@ -9,16 +9,22 @@ import {
   saveHostRoomState,
   setFramingSlideIndex,
   setRoomPhase,
+  setWorkshopGroupingStatus,
+  setWorkshopIdeaGroups,
   setWorkshopStage,
+  toggleGroupEndorsement,
   toggleProposalEndorsement,
   triggerScenarioTwist,
   updateCurrentCommitment,
 } from '../state/roomEngine';
-import { buildJoinUrl, generateJoinQrSvg } from '../utils/qrCode';
+import { buildJoinUrl, formatShortJoinLink, generateJoinQrSvg } from '../utils/qrCode';
+import { getConfiguredAiKey, setConfiguredAiKey, groupWorkshopIdeasWithAI } from '../utils/ideaGrouping';
 import { HostRoomChannel } from '../utils/roomSync';
-import { RoomState, ScenarioCard } from '../types/game';
+import { RoomState, ScenarioCard, WorkshopStage } from '../types/game';
 import {
+  CheckIcon,
   CloseIcon,
+  CopyIcon,
   PencilIcon,
   QrIcon,
   SparkIcon,
@@ -45,12 +51,95 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
   const [showQrModal, setShowQrModal] = useState(false);
   const [isEditingCode, setIsEditingCode] = useState(false);
   const [draftCode, setDraftCode] = useState(room.code);
+  const [copiedJoinLink, setCopiedJoinLink] = useState(false);
+  const [aiKey, setAiKey] = useState<string>(() => getConfiguredAiKey());
+  const [isEditingKey, setIsEditingKey] = useState(false);
+  const [keyInputVal, setKeyInputVal] = useState('');
+
+  const roomRef = React.useRef(room);
+  roomRef.current = room;
+
+  const joinUrl = buildJoinUrl(room.code);
+  const shortJoinLink = formatShortJoinLink(joinUrl);
+
+  const handleCopyJoinLink = async () => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(joinUrl);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = joinUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedJoinLink(true);
+      setTimeout(() => setCopiedJoinLink(false), 2000);
+    } catch {
+      // Ignore
+    }
+  };
+
+  const handleOpenQrModal = () => {
+    const current = getConfiguredAiKey();
+    setAiKey(current);
+    setKeyInputVal(current);
+    setIsEditingKey(false);
+    setShowQrModal(true);
+  };
+
+  const handleSetWorkshopStage = async (stage: WorkshopStage) => {
+    if (stage === 'small_groups') {
+      updateRoomState(setWorkshopStage(roomRef.current, 'small_groups'));
+      return;
+    }
+
+    if (stage === 'large_group') {
+      const currentRoom = roomRef.current;
+      const proposals = Object.values(currentRoom.workshopProposals || {});
+      const hasAiKey = Boolean(getConfiguredAiKey());
+
+      if (proposals.length === 0 || !hasAiKey) {
+        const next = setWorkshopIdeaGroups(
+          setWorkshopStage(currentRoom, 'large_group'),
+          [],
+          'unavailable'
+        );
+        updateRoomState(next);
+        return;
+      }
+
+      const groupingRoom = setWorkshopGroupingStatus(
+        setWorkshopStage(currentRoom, 'large_group'),
+        'grouping'
+      );
+      updateRoomState(groupingRoom);
+
+      const startTime = Date.now();
+      try {
+        const result = await groupWorkshopIdeasWithAI(proposals);
+        if (!result.fromCache) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed < 600) {
+            await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
+          }
+        }
+        const latest = roomRef.current;
+        const finalized = setWorkshopIdeaGroups(latest, result.groups, result.status);
+        updateRoomState(finalized);
+      } catch {
+        const latest = roomRef.current;
+        const failed = setWorkshopIdeaGroups(latest, [], 'unavailable');
+        updateRoomState(failed);
+      }
+    }
+  };
 
   // Generate QR code SVG whenever room code changes
   useEffect(() => {
     setDraftCode(room.code);
     let active = true;
-    const joinUrl = buildJoinUrl(room.code);
     generateJoinQrSvg(joinUrl).then((svg) => {
       if (active) setQrSvg(svg);
     });
@@ -104,11 +193,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
       if (e.code === 'Space') {
         e.preventDefault();
         if (room.phase === 'opening_framing') {
-          if (activeSlide < 2) {
-            updateRoomState(setFramingSlideIndex(room, activeSlide + 1));
-          } else {
-            updateRoomState(setRoomPhase(room, 'voting'));
-          }
+          updateRoomState(setRoomPhase(room, 'voting'));
         } else if (room.phase === 'currents_framing') {
           if (activeSlide < 4) {
             updateRoomState(setFramingSlideIndex(room, activeSlide + 1));
@@ -121,11 +206,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
       } else if (e.code === 'ArrowRight') {
         e.preventDefault();
         if (room.phase === 'opening_framing') {
-          if (activeSlide < 2) {
-            updateRoomState(setFramingSlideIndex(room, activeSlide + 1));
-          } else {
-            updateRoomState(setRoomPhase(room, 'voting'));
-          }
+          updateRoomState(setRoomPhase(room, 'voting'));
         } else if (room.phase === 'currents_framing') {
           if (activeSlide < 4) {
             updateRoomState(setFramingSlideIndex(room, activeSlide + 1));
@@ -205,7 +286,6 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
   };
 
   const categoryMeta = currentCard ? CATEGORY_META[currentCard.category] : undefined;
-  const joinUrl = buildJoinUrl(room.code);
 
   return (
     <div
@@ -324,7 +404,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
 
             <button
               id="toggle-qr-btn"
-              onClick={() => setShowQrModal(true)}
+              onClick={handleOpenQrModal}
               className="btn-secondary"
               style={{ padding: '0.35rem 0.75rem', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
               title="Show join QR code for latecomers"
@@ -393,7 +473,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
             }}
           >
             <WaveIcon size={13} />
-            <span>Workshop</span>
+            <span>Brainstorm</span>
           </button>
         </div>
 
@@ -458,7 +538,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               <span
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '0.85rem',
+                  fontSize: '0.95rem',
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
@@ -486,13 +566,13 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               />
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Or enter room code at website
+                <span style={{ fontSize: '0.88rem', color: 'var(--ink-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Room Code
                 </span>
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '3.4rem',
+                    fontSize: '3.6rem',
                     fontWeight: 800,
                     letterSpacing: '0.18em',
                     color: 'var(--ink-primary)',
@@ -501,6 +581,33 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 >
                   {room.code}
                 </span>
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem', marginTop: '0.65rem' }}>
+                  <span style={{ fontSize: '0.88rem', color: 'var(--ink-muted)' }}>
+                    Or join manually at
+                  </span>
+                  <button
+                    id="copy-short-link-btn"
+                    onClick={handleCopyJoinLink}
+                    className="btn-ghost"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      padding: '0.45rem 0.85rem',
+                      borderRadius: 'var(--radius-full)',
+                      backgroundColor: 'var(--bg-tray)',
+                      border: '1px solid var(--border-default)',
+                      fontSize: '1.05rem',
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--ink-primary)',
+                    }}
+                    title="Click to copy join link"
+                  >
+                    <span>{shortJoinLink}</span>
+                    {copiedJoinLink ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -516,11 +623,11 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <h2 style={{ fontSize: '2rem' }}>The Workshop Table</h2>
+                <h2 style={{ fontSize: '2.15rem' }}>The Workshop Table</h2>
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '1rem',
+                    fontSize: '1.1rem',
                     fontWeight: 700,
                     color: 'var(--ink-secondary)',
                   }}
@@ -579,7 +686,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                       />
                       <span
                         style={{
-                          fontSize: '0.78rem',
+                          fontSize: '0.95rem',
                           fontFamily: 'var(--font-mono)',
                           color: 'var(--ink-secondary)',
                           maxWidth: '90px',
@@ -676,20 +783,21 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
              ================================================================= */
           <CurrentsWorkshop
             room={room}
-            onSetWorkshopStage={(stage) => {
-              const next = setWorkshopStage(room, stage);
+            onSetWorkshopStage={handleSetWorkshopStage}
+            onToggleEndorsement={(proposalId) => {
+              const next = toggleProposalEndorsement(roomRef.current, 'host', proposalId);
               updateRoomState(next);
             }}
-            onToggleEndorsement={(proposalId) => {
-              const next = toggleProposalEndorsement(room, 'host', proposalId);
+            onToggleGroupEndorsement={(groupId) => {
+              const next = toggleGroupEndorsement(roomRef.current, 'host', groupId);
               updateRoomState(next);
             }}
             onUpdateCommitment={(cid, text) => {
-              const next = updateCurrentCommitment(room, cid, text);
+              const next = updateCurrentCommitment(roomRef.current, cid, text);
               updateRoomState(next);
             }}
             onBackToScenarios={() => {
-              const next = setRoomPhase(room, 'revealed');
+              const next = setRoomPhase(roomRef.current, 'revealed');
               updateRoomState(next);
             }}
           />
@@ -716,12 +824,13 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                       backgroundColor: categoryMeta.surfaceTint,
                       color: categoryMeta.accentColor,
                       border: `1px solid ${categoryMeta.accentColor}33`,
+                      fontSize: '0.86rem',
                     }}
                   >
                     {categoryMeta.label}
                   </span>
                 )}
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', color: 'var(--ink-muted)' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', color: 'var(--ink-muted)' }}>
                   Scenario {room.currentScenarioIndex + 1} of {totalCards}
                 </span>
               </div>
@@ -774,7 +883,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h1 style={{ fontSize: '2.1rem', maxWidth: '850px', lineHeight: 1.2 }}>
+                  <h1 style={{ fontSize: '2.35rem', maxWidth: '960px', lineHeight: 1.2 }}>
                     {currentCard.title}
                   </h1>
                 </div>
@@ -783,10 +892,10 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 <p
                   style={{
                     fontFamily: 'var(--font-serif)',
-                    fontSize: '1.25rem',
-                    lineHeight: 1.5,
+                    fontSize: '1.4rem',
+                    lineHeight: 1.55,
                     color: 'var(--ink-primary)',
-                    maxWidth: '960px',
+                    maxWidth: '1040px',
                   }}
                 >
                   {currentCard.prompt}
@@ -984,7 +1093,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
           <div
             className="card-tabletop"
             style={{
-              maxWidth: '420px',
+              maxWidth: '460px',
               width: '100%',
               display: 'flex',
               flexDirection: 'column',
@@ -1034,6 +1143,193 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '2.4rem', fontWeight: 800, letterSpacing: '0.15em' }}>
                 {room.code}
               </span>
+              <div style={{ marginTop: '0.4rem', fontSize: '0.84rem', fontFamily: 'var(--font-mono)', color: 'var(--ink-secondary)' }}>
+                {shortJoinLink}
+              </div>
+            </div>
+
+            {/* Local AI Grouping Key (Optional) */}
+            <div
+              style={{
+                width: '100%',
+                paddingTop: '1rem',
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+                textAlign: 'left',
+              }}
+            >
+              <label
+                htmlFor="modal-host-ai-key-input"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: 'var(--ink-secondary)',
+                }}
+              >
+                <SparkIcon size={13} style={{ color: 'var(--currents-teal)' }} />
+                <span>Idea Grouping Key (Optional)</span>
+              </label>
+
+              {aiKey && !isEditingKey ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.45rem 0.75rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.78rem',
+                      color: 'var(--stance-support)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <CheckIcon size={12} />
+                    <span>Saved on this browser</span>
+                  </div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <button
+                      id="modal-change-ai-key-btn"
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => {
+                        setKeyInputVal(aiKey);
+                        setIsEditingKey(true);
+                      }}
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '0.2rem 0.45rem',
+                        color: 'var(--ink-secondary)',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Change
+                    </button>
+                    <button
+                      id="modal-clear-ai-key-btn"
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => {
+                        setConfiguredAiKey('');
+                        setAiKey('');
+                        setKeyInputVal('');
+                        setIsEditingKey(false);
+                      }}
+                      style={{
+                        fontSize: '0.74rem',
+                        padding: '0.2rem 0.45rem',
+                        color: 'var(--ink-muted)',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <input
+                      id="modal-host-ai-key-input"
+                      type="password"
+                      value={keyInputVal}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setKeyInputVal(val);
+                        setConfiguredAiKey(val);
+                        if (!val.trim()) {
+                          setAiKey('');
+                        }
+                      }}
+                      onBlur={() => {
+                        const trimmed = keyInputVal.trim();
+                        setConfiguredAiKey(trimmed);
+                        setAiKey(trimmed);
+                        if (isEditingKey) {
+                          setIsEditingKey(false);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const trimmed = keyInputVal.trim();
+                          setConfiguredAiKey(trimmed);
+                          setAiKey(trimmed);
+                          setIsEditingKey(false);
+                        }
+                      }}
+                      placeholder="Paste AI Studio key to group similar ideas"
+                      autoComplete="off"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        fontSize: '0.84rem',
+                        fontFamily: 'var(--font-mono)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-default)',
+                        backgroundColor: '#FFFDF9',
+                        color: 'var(--ink-primary)',
+                      }}
+                    />
+                    {isEditingKey && (
+                      <button
+                        id="modal-save-ai-key-btn"
+                        type="button"
+                        className="btn-secondary"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const trimmed = keyInputVal.trim();
+                          setConfiguredAiKey(trimmed);
+                          setAiKey(trimmed);
+                          setIsEditingKey(false);
+                        }}
+                        onClick={() => {
+                          const trimmed = keyInputVal.trim();
+                          setConfiguredAiKey(trimmed);
+                          setAiKey(trimmed);
+                          setIsEditingKey(false);
+                        }}
+                        style={{
+                          padding: '0.45rem 0.75rem',
+                          fontSize: '0.76rem',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Save
+                      </button>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.72rem',
+                      color: 'var(--ink-muted)',
+                      marginTop: '0.35rem',
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    Enables automated AI theme clustering during Stage 2 of the Four Currents brainstorm.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
