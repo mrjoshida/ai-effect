@@ -408,8 +408,8 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
                               style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}
                             >
                               {/* Top Badge Row */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                {memberProposals.length > 1 ? (
+                              {memberProposals.length > 1 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                   <span
                                     style={{
                                       fontSize: '0.78rem',
@@ -423,23 +423,8 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
                                   >
                                     {memberProposals.length} related ideas
                                   </span>
-                                ) : (
-                                  <span />
-                                )}
-                                {isTop && (
-                                  <span
-                                    style={{
-                                      fontSize: '0.78rem',
-                                      fontWeight: 700,
-                                      fontFamily: 'var(--font-mono)',
-                                      color: 'var(--currents-teal)',
-                                      textTransform: 'uppercase',
-                                    }}
-                                  >
-                                    Top Idea
-                                  </span>
-                                )}
-                              </div>
+                                </div>
+                              )}
 
                               {/* Main Theme Title */}
                               <h4
@@ -560,28 +545,13 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
                               key={p.id}
                               className={`workshop-proposal-card ${isTop ? 'ratified' : ''}`}
                             >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                {showBadge ? (
+                              {showBadge && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                   <span className={`badge-proposal ${p.type === 'protect' ? 'protect' : 'automate'}`}>
                                     {p.type === 'protect' ? 'Protect & Build' : 'Automate for Time'}
                                   </span>
-                                ) : (
-                                  <span />
-                                )}
-                                {isTop && (
-                                  <span
-                                    style={{
-                                      fontSize: '0.78rem',
-                                      fontWeight: 700,
-                                      fontFamily: 'var(--font-mono)',
-                                      color: 'var(--currents-teal)',
-                                      textTransform: 'uppercase',
-                                    }}
-                                  >
-                                    Top Idea
-                                  </span>
-                                )}
-                              </div>
+                                </div>
+                              )}
 
                               <p
                                 style={{
