@@ -15,7 +15,7 @@ export interface CurrentsWorkshopProps {
   onSetWorkshopStage?: (stage: WorkshopStage) => void;
   onToggleEndorsement?: (proposalId: string) => void;
   onToggleGroupEndorsement?: (groupId: string) => void;
-  onUpdateCommitment: (currentId: RithmCurrentId, text: string) => void;
+  onUpdateCommitment?: (currentId: RithmCurrentId, text: string) => void;
   onBackToScenarios?: () => void;
 }
 
@@ -24,7 +24,6 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
   onSetWorkshopStage,
   onToggleEndorsement,
   onToggleGroupEndorsement,
-  onUpdateCommitment,
   onBackToScenarios,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -54,6 +53,32 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
   const hasAiGroups =
     room.workshopGroupingStatus === 'grouped' &&
     Object.keys(room.workshopIdeaGroups || {}).length > 0;
+
+  const allGroups: WorkshopIdeaGroup[] = Object.values(
+    room.workshopIdeaGroups || {}
+  ).sort(
+    (a, b) =>
+      (b.endorsements?.length || 0) - (a.endorsements?.length || 0) ||
+      a.createdAt - b.createdAt
+  );
+
+  const allProposals: WorkshopProposal[] = Object.values(
+    room.workshopProposals || {}
+  ).sort(
+    (a, b) =>
+      (b.endorsements?.length || 0) - (a.endorsements?.length || 0) ||
+      a.createdAt - b.createdAt
+  );
+
+  const maxGroupVotes = allGroups.reduce(
+    (max, g) => Math.max(max, g.endorsements?.length || 0),
+    0
+  );
+
+  const maxProposalVotes = allProposals.reduce(
+    (max, p) => Math.max(max, p.endorsements?.length || 0),
+    0
+  );
 
   return (
     <div
@@ -103,7 +128,7 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
           <p style={{ fontSize: '1rem', color: 'var(--ink-secondary)', margin: 0, maxWidth: '760px' }}>
             {stage === 'small_groups'
               ? 'Small groups pick a Current and share ideas from their phones for how we could navigate it in our work and relationships.'
-              : 'Review ideas across all Four Currents and +1 the ones that resonate most.'}
+              : 'Review ideas from across the room and +1 the ones we want to focus on.'}
           </p>
         </div>
 
@@ -205,446 +230,409 @@ export const CurrentsWorkshop: React.FC<CurrentsWorkshopProps> = ({
         </div>
       )}
 
-      {/* 4-Column Currents Board */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, minmax(260px, 1fr))',
-          gap: '1.25rem',
-          alignItems: 'start',
-        }}
-      >
-        {synthesis.map((bucket) => {
-          const current = bucket.current;
-          const proposals: WorkshopProposal[] = bucket.proposals || [];
-          const groups: WorkshopIdeaGroup[] = bucket.ideaGroups || [];
+      {stage === 'small_groups' ? (
+        /* =========================================================
+           STAGE 1: 4-Column Currents Board
+           ========================================================= */
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '1.25rem',
+            alignItems: 'start',
+          }}
+        >
+          {synthesis.map((bucket) => {
+            const current = bucket.current;
+            const proposals: WorkshopProposal[] = bucket.proposals || [];
 
-          const maxGroupVotes = groups.reduce(
-            (max, g) => Math.max(max, g.endorsements?.length || 0),
-            0
-          );
+            return (
+              <div
+                key={current.id}
+                className="card-tabletop"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                  borderTop: '4px solid var(--currents-teal)',
+                  padding: '1.25rem 1rem',
+                  minHeight: '420px',
+                }}
+              >
+                {/* Column Header */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.2rem' }}>
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.86rem',
+                        fontWeight: 700,
+                        color: 'var(--currents-teal)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {current.number}
+                    </span>
+                    <a
+                      href={current.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: '0.74rem', color: 'var(--currents-teal)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
+                    >
+                      <span>Guide</span>
+                      <ExternalLinkIcon size={10} />
+                    </a>
+                  </div>
+                  <h3 style={{ fontSize: '1.32rem', margin: '0 0 0.2rem 0', lineHeight: 1.25 }}>
+                    {current.title}
+                  </h3>
+                </div>
 
-          const maxProposalVotes = proposals.reduce(
-            (max, p) => Math.max(max, p.endorsements?.length || 0),
-            0
-          );
+                {/* Ideas Stream in Each Column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span
+                      style={{
+                        fontSize: '0.84rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        color: 'var(--ink-muted)',
+                      }}
+                    >
+                      Ideas ({proposals.length})
+                    </span>
+                  </div>
 
-          return (
-            <div
-              key={current.id}
-              className="card-tabletop"
+                  {proposals.length === 0 ? (
+                    <div
+                      style={{
+                        padding: '1.25rem 0.75rem',
+                        textAlign: 'center',
+                        backgroundColor: 'var(--bg-card-subtle)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px dashed var(--border-default)',
+                        color: 'var(--ink-muted)',
+                        fontSize: '0.92rem',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      Waiting for ideas from participant phones...
+                    </div>
+                  ) : (
+                    proposals.map((p) => {
+                      const showBadge = p.type === 'protect' || p.type === 'automate';
+                      return (
+                        <div key={p.id} className="workshop-proposal-card">
+                          {showBadge && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                              <span className={`badge-proposal ${p.type === 'protect' ? 'protect' : 'automate'}`}>
+                                {p.type === 'protect' ? 'Protect & Build' : 'Automate for Time'}
+                              </span>
+                            </div>
+                          )}
+
+                          <p
+                            style={{
+                              fontSize: '1.04rem',
+                              color: 'var(--ink-primary)',
+                              lineHeight: 1.45,
+                              margin: 0,
+                              fontWeight: 500,
+                            }}
+                          >
+                            "{p.text}"
+                          </p>
+
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'flex-start',
+                              marginTop: '0.25rem',
+                              fontSize: '0.86rem',
+                              color: 'var(--ink-secondary)',
+                              fontStyle: 'italic',
+                            }}
+                          >
+                            — {p.authorName}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* =========================================================
+           STAGE 2: Unified Room-Wide Share & Vote Board
+           ========================================================= */
+        <div
+          className="card-tabletop"
+          style={{
+            padding: '1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1.25rem',
+          }}
+        >
+          {/* Top header row */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '1px solid var(--border-subtle)',
+              paddingBottom: '0.75rem',
+            }}
+          >
+            <span
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem',
-                borderTop: '4px solid var(--currents-teal)',
-                padding: '1.25rem 1rem',
-                minHeight: '520px',
+                fontSize: '0.92rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: 'var(--ink-secondary)',
               }}
             >
-              {/* Column Header */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.2rem' }}>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.86rem',
-                      fontWeight: 700,
-                      color: 'var(--currents-teal)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    {current.number}
-                  </span>
-                  <a
-                    href={current.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: '0.74rem', color: 'var(--currents-teal)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}
-                  >
-                    <span>Guide</span>
-                    <ExternalLinkIcon size={10} />
-                  </a>
-                </div>
-                <h3 style={{ fontSize: '1.32rem', margin: '0 0 0.2rem 0', lineHeight: 1.25 }}>
-                  {current.title}
-                </h3>
-              </div>
+              {hasAiGroups
+                ? `Idea Themes (${allGroups.length})`
+                : `All Ideas (${allProposals.length})`}
+            </span>
+            <span style={{ color: 'var(--currents-teal)', fontWeight: 600, fontSize: '0.88rem' }}>
+              Sorted by +1s
+            </span>
+          </div>
 
-              {/* Ideas Stream in Each Column */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', flex: 1 }}>
-                {stage === 'small_groups' ? (
-                  /* =========================================================
-                     STAGE 1: Small Groups Idea Generation (No voting)
-                     ========================================================= */
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span
-                        style={{
-                          fontSize: '0.84rem',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          color: 'var(--ink-muted)',
-                        }}
-                      >
-                        Ideas ({proposals.length})
-                      </span>
-                    </div>
-
-                    {proposals.length === 0 ? (
-                      <div
-                        style={{
-                          padding: '1.25rem 0.75rem',
-                          textAlign: 'center',
-                          backgroundColor: 'var(--bg-card-subtle)',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1px dashed var(--border-default)',
-                          color: 'var(--ink-muted)',
-                          fontSize: '0.92rem',
-                          fontStyle: 'italic',
-                        }}
-                      >
-                        Waiting for ideas from participant phones...
-                      </div>
-                    ) : (
-                      proposals.map((p) => {
-                        const showBadge = p.type === 'protect' || p.type === 'automate';
-                        return (
-                          <div key={p.id} className="workshop-proposal-card">
-                            {showBadge && (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                                <span className={`badge-proposal ${p.type === 'protect' ? 'protect' : 'automate'}`}>
-                                  {p.type === 'protect' ? 'Protect & Build' : 'Automate for Time'}
-                                </span>
-                              </div>
-                            )}
-
-                            <p
-                              style={{
-                                fontSize: '1.04rem',
-                                color: 'var(--ink-primary)',
-                                lineHeight: 1.45,
-                                margin: 0,
-                                fontWeight: 500,
-                              }}
-                            >
-                              "{p.text}"
-                            </p>
-
-                            <div
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'flex-start',
-                                marginTop: '0.25rem',
-                                fontSize: '0.86rem',
-                                color: 'var(--ink-secondary)',
-                                fontStyle: 'italic',
-                              }}
-                            >
-                              — {p.authorName}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </>
-                ) : (
-                  /* =========================================================
-                     STAGE 2: Large Group Share & Vote
-                     ========================================================= */
-                  hasAiGroups ? (
-                    /* Case A: AI Affinity Groups Active */
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span
-                          style={{
-                            fontSize: '0.84rem',
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em',
-                            color: 'var(--ink-muted)',
-                          }}
-                        >
-                          Idea Themes ({groups.length})
-                        </span>
-                        <span style={{ fontSize: '0.82rem', color: 'var(--currents-teal)', fontWeight: 600 }}>
-                          Sorted by +1s
-                        </span>
-                      </div>
-
-                      {groups.length === 0 ? (
-                        <div
-                          style={{
-                            padding: '1.25rem 0.75rem',
-                            textAlign: 'center',
-                            backgroundColor: 'var(--bg-card-subtle)',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px dashed var(--border-default)',
-                            color: 'var(--ink-muted)',
-                            fontSize: '0.92rem',
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          No idea themes for this Current.
-                        </div>
-                      ) : (
-                        groups.map((group) => {
-                          const memberProposals = group.proposalIds
-                            .map((id) => room.workshopProposals?.[id])
-                            .filter(Boolean) as WorkshopProposal[];
-                          const isTop =
-                            maxGroupVotes > 0 &&
-                            (group.endorsements?.length || 0) === maxGroupVotes;
-
-                          const showVerbatimList =
-                            memberProposals.length > 1 ||
-                            (memberProposals[0] && memberProposals[0].text !== group.themeTitle);
-
-                          return (
-                            <div
-                              key={group.id}
-                              className={`workshop-proposal-card ${isTop ? 'ratified' : ''}`}
-                              style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}
-                            >
-                              {/* Top Badge Row */}
-                              {memberProposals.length > 1 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span
-                                    style={{
-                                      fontSize: '0.78rem',
-                                      fontWeight: 600,
-                                      padding: '0.15rem 0.45rem',
-                                      borderRadius: 'var(--radius-full)',
-                                      backgroundColor: 'var(--bg-tray)',
-                                      color: 'var(--ink-secondary)',
-                                      border: '1px solid var(--border-default)',
-                                    }}
-                                  >
-                                    {memberProposals.length} related ideas
-                                  </span>
-                                </div>
-                              )}
-
-                              {/* Main Theme Title */}
-                              <h4
-                                style={{
-                                  fontSize: '1.1rem',
-                                  margin: '0.1rem 0',
-                                  color: 'var(--ink-primary)',
-                                  fontWeight: 600,
-                                  lineHeight: 1.35,
-                                }}
-                              >
-                                {group.themeTitle}
-                              </h4>
-
-                              {/* Nested Verbatim Sub-Ideas */}
-                              {showVerbatimList ? (
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '0.45rem',
-                                    backgroundColor: 'var(--bg-tray)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    padding: '0.55rem 0.7rem',
-                                    marginTop: '0.15rem',
-                                    fontSize: '0.92rem',
-                                    lineHeight: 1.4,
-                                    border: '1px solid var(--border-subtle)',
-                                  }}
-                                >
-                                  {memberProposals.map((mp) => (
-                                    <div key={mp.id} style={{ color: 'var(--ink-secondary)', lineHeight: 1.4 }}>
-                                      "{mp.text}" <span style={{ fontStyle: 'italic', color: 'var(--ink-muted)' }}>— {mp.authorName}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                memberProposals[0] && (
-                                  <div style={{ fontSize: '0.86rem', color: 'var(--ink-secondary)', fontStyle: 'italic' }}>
-                                    — {memberProposals[0].authorName}
-                                  </div>
-                                )
-                              )}
-
-                              {/* Bottom Row: +1 Vote Button */}
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.3rem' }}>
-                                <button
-                                  id={`endorse-group-btn-${group.id}`}
-                                  onClick={() => onToggleGroupEndorsement?.(group.id)}
-                                  className="btn-ghost"
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.35rem',
-                                    padding: '0.25rem 0.7rem',
-                                    backgroundColor: 'var(--bg-tray)',
-                                    borderRadius: 'var(--radius-full)',
-                                    fontSize: '0.88rem',
-                                    fontFamily: 'var(--font-mono)',
-                                    fontWeight: 700,
-                                    border: '1px solid var(--border-default)',
-                                  }}
-                                  title="Vote +1 on this idea theme"
-                                >
-                                  <Pebble variant={1} stance="support" size="sm" />
-                                  <span>+1 • {group.endorsements?.length || 0}</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </>
-                  ) : (
-                    /* Case B: AI Unavailable -> Voting Directly on Proposals */
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span
-                          style={{
-                            fontSize: '0.84rem',
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em',
-                            color: 'var(--ink-muted)',
-                          }}
-                        >
-                          Ideas ({proposals.length})
-                        </span>
-                        <span style={{ fontSize: '0.82rem', color: 'var(--currents-teal)', fontWeight: 600 }}>
-                          Sorted by +1s
-                        </span>
-                      </div>
-
-                      {proposals.length === 0 ? (
-                        <div
-                          style={{
-                            padding: '1.25rem 0.75rem',
-                            textAlign: 'center',
-                            backgroundColor: 'var(--bg-card-subtle)',
-                            borderRadius: 'var(--radius-md)',
-                            border: '1px dashed var(--border-default)',
-                            color: 'var(--ink-muted)',
-                            fontSize: '0.92rem',
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          No ideas submitted for this Current.
-                        </div>
-                      ) : (
-                        proposals.map((p) => {
-                          const isTop =
-                            maxProposalVotes > 0 &&
-                            (p.endorsements?.length || 0) === maxProposalVotes;
-                          const showBadge = p.type === 'protect' || p.type === 'automate';
-
-                          return (
-                            <div
-                              key={p.id}
-                              className={`workshop-proposal-card ${isTop ? 'ratified' : ''}`}
-                            >
-                              {showBadge && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span className={`badge-proposal ${p.type === 'protect' ? 'protect' : 'automate'}`}>
-                                    {p.type === 'protect' ? 'Protect & Build' : 'Automate for Time'}
-                                  </span>
-                                </div>
-                              )}
-
-                              <p
-                                style={{
-                                  fontSize: '1.04rem',
-                                  color: 'var(--ink-primary)',
-                                  lineHeight: 1.45,
-                                  margin: '0.2rem 0',
-                                  fontWeight: 500,
-                                }}
-                              >
-                                "{p.text}"
-                              </p>
-
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                  marginTop: '0.25rem',
-                                  fontSize: '0.86rem',
-                                  color: 'var(--ink-secondary)',
-                                }}
-                              >
-                                <span style={{ fontStyle: 'italic' }}>— {p.authorName}</span>
-
-                                <button
-                                  id={`endorse-btn-${p.id}`}
-                                  onClick={() => onToggleEndorsement?.(p.id)}
-                                  className="btn-ghost"
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.35rem',
-                                    padding: '0.25rem 0.7rem',
-                                    backgroundColor: 'var(--bg-tray)',
-                                    borderRadius: 'var(--radius-full)',
-                                    fontSize: '0.88rem',
-                                    fontFamily: 'var(--font-mono)',
-                                    fontWeight: 700,
-                                    border: '1px solid var(--border-default)',
-                                  }}
-                                  title="Vote +1 on this idea"
-                                >
-                                  <Pebble variant={1} stance="support" size="sm" />
-                                  <span>+1 • {p.endorsements?.length || 0}</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </>
-                  )
-                )}
-              </div>
-
-              {/* Facilitator Synthesis / Takeaway Note */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-                <label
-                  htmlFor={`commitment-${current.id}`}
+          {/* Responsive multi-column grid of cards across the room */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+              gap: '1.15rem',
+            }}
+          >
+            {hasAiGroups ? (
+              allGroups.length === 0 ? (
+                <div
                   style={{
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    color: 'var(--ink-secondary)',
+                    padding: '2rem 1rem',
+                    textAlign: 'center',
+                    backgroundColor: 'var(--bg-card-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px dashed var(--border-default)',
+                    color: 'var(--ink-muted)',
+                    fontSize: '0.95rem',
+                    fontStyle: 'italic',
+                    gridColumn: '1 / -1',
                   }}
                 >
-                  Facilitator Synthesis Note
-                </label>
-                <textarea
-                  id={`commitment-${current.id}`}
-                  value={room.currentCommitments[current.id] || ''}
-                  onChange={(e) => onUpdateCommitment(current.id, e.target.value)}
-                  placeholder="Record summary commitment..."
-                  rows={2}
+                  No idea themes recorded yet.
+                </div>
+              ) : (
+                allGroups.map((group) => {
+                  const memberProposals = group.proposalIds
+                    .map((id) => room.workshopProposals?.[id])
+                    .filter(Boolean) as WorkshopProposal[];
+                  const isTop =
+                    maxGroupVotes > 0 &&
+                    (group.endorsements?.length || 0) === maxGroupVotes;
+
+                  const showVerbatimList =
+                    memberProposals.length > 1 ||
+                    (memberProposals[0] && memberProposals[0].text !== group.themeTitle);
+
+                  return (
+                    <div
+                      key={group.id}
+                      className={`workshop-proposal-card ${isTop ? 'ratified' : ''}`}
+                      style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}
+                    >
+                      {/* Top Badge Row */}
+                      {memberProposals.length > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span
+                            style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: 'var(--radius-full)',
+                              backgroundColor: 'var(--bg-tray)',
+                              color: 'var(--ink-secondary)',
+                              border: '1px solid var(--border-default)',
+                            }}
+                          >
+                            {memberProposals.length} related ideas
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Main Theme Title */}
+                      <h4
+                        style={{
+                          fontSize: '1.1rem',
+                          margin: '0.1rem 0',
+                          color: 'var(--ink-primary)',
+                          fontWeight: 600,
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {group.themeTitle}
+                      </h4>
+
+                      {/* Nested Verbatim Sub-Ideas */}
+                      {showVerbatimList ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.45rem',
+                            backgroundColor: 'var(--bg-tray)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '0.55rem 0.7rem',
+                            marginTop: '0.15rem',
+                            fontSize: '0.92rem',
+                            lineHeight: 1.4,
+                            border: '1px solid var(--border-subtle)',
+                          }}
+                        >
+                          {memberProposals.map((mp) => (
+                            <div key={mp.id} style={{ color: 'var(--ink-secondary)', lineHeight: 1.4 }}>
+                              "{mp.text}" <span style={{ fontStyle: 'italic', color: 'var(--ink-muted)' }}>— {mp.authorName}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        memberProposals[0] && (
+                          <div style={{ fontSize: '0.86rem', color: 'var(--ink-secondary)', fontStyle: 'italic' }}>
+                            — {memberProposals[0].authorName}
+                          </div>
+                        )
+                      )}
+
+                      {/* Bottom Row: +1 Vote Button */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto', paddingTop: '0.4rem' }}>
+                        <button
+                          id={`endorse-group-btn-${group.id}`}
+                          onClick={() => onToggleGroupEndorsement?.(group.id)}
+                          className="btn-ghost"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.25rem 0.7rem',
+                            backgroundColor: 'var(--bg-tray)',
+                            borderRadius: 'var(--radius-full)',
+                            fontSize: '0.88rem',
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: 700,
+                            border: '1px solid var(--border-default)',
+                          }}
+                          title="Vote +1 on this idea theme"
+                        >
+                          <Pebble variant={1} stance="support" size="sm" />
+                          <span>+1 • {group.endorsements?.length || 0}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )
+            ) : (
+              allProposals.length === 0 ? (
+                <div
                   style={{
-                    width: '100%',
-                    padding: '0.5rem 0.65rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-default)',
-                    backgroundColor: '#FFFDF9',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '0.94rem',
-                    color: 'var(--ink-primary)',
-                    resize: 'vertical',
+                    padding: '2rem 1rem',
+                    textAlign: 'center',
+                    backgroundColor: 'var(--bg-card-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px dashed var(--border-default)',
+                    color: 'var(--ink-muted)',
+                    fontSize: '0.95rem',
+                    fontStyle: 'italic',
+                    gridColumn: '1 / -1',
                   }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                >
+                  No ideas submitted yet.
+                </div>
+              ) : (
+                allProposals.map((p) => {
+                  const isTop =
+                    maxProposalVotes > 0 &&
+                    (p.endorsements?.length || 0) === maxProposalVotes;
+                  const showBadge = p.type === 'protect' || p.type === 'automate';
+
+                  return (
+                    <div
+                      key={p.id}
+                      className={`workshop-proposal-card ${isTop ? 'ratified' : ''}`}
+                      style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}
+                    >
+                      {showBadge && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.1rem' }}>
+                          <span className={`badge-proposal ${p.type === 'protect' ? 'protect' : 'automate'}`}>
+                            {p.type === 'protect' ? 'Protect & Build' : 'Automate for Time'}
+                          </span>
+                        </div>
+                      )}
+
+                      <p
+                        style={{
+                          fontSize: '1.04rem',
+                          color: 'var(--ink-primary)',
+                          lineHeight: 1.45,
+                          margin: '0.2rem 0',
+                          fontWeight: 500,
+                        }}
+                      >
+                        "{p.text}"
+                      </p>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginTop: 'auto',
+                          paddingTop: '0.25rem',
+                          fontSize: '0.86rem',
+                          color: 'var(--ink-secondary)',
+                        }}
+                      >
+                        <span style={{ fontStyle: 'italic' }}>— {p.authorName}</span>
+
+                        <button
+                          id={`endorse-btn-${p.id}`}
+                          onClick={() => onToggleEndorsement?.(p.id)}
+                          className="btn-ghost"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            padding: '0.25rem 0.7rem',
+                            backgroundColor: 'var(--bg-tray)',
+                            borderRadius: 'var(--radius-full)',
+                            fontSize: '0.88rem',
+                            fontFamily: 'var(--font-mono)',
+                            fontWeight: 700,
+                            border: '1px solid var(--border-default)',
+                          }}
+                          title="Vote +1 on this idea"
+                        >
+                          <Pebble variant={1} stance="support" size="sm" />
+                          <span>+1 • {p.endorsements?.length || 0}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

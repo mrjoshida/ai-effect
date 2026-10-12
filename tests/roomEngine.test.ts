@@ -642,7 +642,7 @@ describe('Room Engine State Machine & Analytics', () => {
 
       const sampleGroups: WorkshopIdeaGroup[] = [
         {
-          id: 'wig_current-01_1',
+          id: 'wig_room_1',
           currentId: 'current-01',
           themeTitle: 'Personal Milestone Outreach',
           proposalIds: ['p1', 'p2'],
@@ -653,7 +653,7 @@ describe('Room Engine State Machine & Analytics', () => {
 
       room = setWorkshopIdeaGroups(room, sampleGroups, 'grouped');
       expect(room.workshopGroupingStatus).toBe('grouped');
-      expect(room.workshopIdeaGroups?.['wig_current-01_1']).toEqual(sampleGroups[0]);
+      expect(room.workshopIdeaGroups?.['wig_room_1']).toEqual(sampleGroups[0]);
     });
 
     it('automatically includes unclustered proposals in workshopIdeaGroups and adds late proposals in stage 2', () => {
@@ -667,7 +667,7 @@ describe('Room Engine State Machine & Analytics', () => {
       // AI grouping clusters Idea 1, but Idea 2 arrived during grouping and was not in clusters
       const clusteredGroups: WorkshopIdeaGroup[] = [
         {
-          id: 'wig_current-01_cluster',
+          id: 'wig_room_1',
           currentId: 'current-01',
           themeTitle: 'Clustered Outreach',
           proposalIds: [prop1Id],
@@ -678,12 +678,13 @@ describe('Room Engine State Machine & Analytics', () => {
 
       room = setWorkshopIdeaGroups(room, clusteredGroups, 'grouped');
       expect(room.workshopGroupingStatus).toBe('grouped');
-      expect(room.workshopIdeaGroups?.['wig_current-01_cluster']).toBeDefined();
+      expect(room.workshopIdeaGroups?.['wig_room_1']).toBeDefined();
       // Idea 2 must automatically have a fallback group so it is never omitted
       const fallbackGroup = Object.values(room.workshopIdeaGroups || {}).find((g) =>
         g.proposalIds.includes(prop2Id)
       );
       expect(fallbackGroup).toBeDefined();
+      expect(fallbackGroup?.id).toBe(`wig_single_${prop2Id}`);
       expect(fallbackGroup?.currentId).toBe('current-02');
       expect(fallbackGroup?.themeTitle).toBe('Idea 2');
 
@@ -695,13 +696,14 @@ describe('Room Engine State Machine & Analytics', () => {
         g.proposalIds.includes(prop3!.id)
       );
       expect(lateGroup).toBeDefined();
+      expect(lateGroup?.id).toBe(`wig_single_${prop3!.id}`);
       expect(lateGroup?.currentId).toBe('current-03');
       expect(lateGroup?.themeTitle).toBe('Late Stage 2 Idea');
     });
 
     it('toggles group endorsements directly and via applyInboundMessage', () => {
       let room = createRoomState();
-      const groupId = 'wig_current-02_1';
+      const groupId = 'wig_room_1';
       room = setWorkshopIdeaGroups(
         room,
         [
@@ -740,7 +742,7 @@ describe('Room Engine State Machine & Analytics', () => {
       expect(sameRoom).toBe(room);
     });
 
-    it('groups brainstorm ideas with AI, verifies fingerprint caching, 30s throttle, and fallback on error', async () => {
+    it('groups brainstorm ideas with AI across currents, verifies fingerprint caching, 30s throttle, and fallback on error', async () => {
       resetIdeaGroupingCacheForTesting();
 
       const sampleProposals: WorkshopProposal[] = [
@@ -781,7 +783,7 @@ describe('Room Engine State Machine & Analytics', () => {
       expect(noKeyRes.status).toBe('unavailable');
       expect(noKeyRes.groups).toHaveLength(0);
 
-      // Mock fetchImpl returning successful clustering
+      // Mock fetchImpl returning successful clustering grouping p1 (current-01) and p3 (current-02) across currents
       const mockFetch = async () => {
         return {
           ok: true,
@@ -794,9 +796,8 @@ describe('Room Engine State Machine & Analytics', () => {
                       text: JSON.stringify({
                         groups: [
                           {
-                            currentId: 'current-01',
-                            themeTitle: 'Direct Personal Reachouts',
-                            proposalIds: ['p1', 'p2'],
+                            themeTitle: 'Direct Outreach & Peer Touchpoints',
+                            proposalIds: ['p1', 'p3'],
                           },
                         ],
                       }),
@@ -817,11 +818,13 @@ describe('Room Engine State Machine & Analytics', () => {
       });
 
       expect(res.status).toBe('grouped');
-      expect(res.groups).toHaveLength(2); // 1 clustered group for current-01, 1 fallback singleton for p3 (current-02)
-      expect(res.groups[0].themeTitle).toBe('Direct Personal Reachouts');
-      expect(res.groups[0].proposalIds).toEqual(['p1', 'p2']);
-      expect(res.groups[1].currentId).toBe('current-02');
-      expect(res.groups[1].proposalIds).toEqual(['p3']);
+      expect(res.groups).toHaveLength(2); // 1 cross-current cluster for p1 & p3, 1 fallback singleton for p2
+      expect(res.groups[0].id).toBe('wig_room_1');
+      expect(res.groups[0].themeTitle).toBe('Direct Outreach & Peer Touchpoints');
+      expect(res.groups[0].proposalIds).toEqual(['p1', 'p3']);
+      expect(res.groups[1].id).toBe('wig_room_2');
+      expect(res.groups[1].currentId).toBe('current-01');
+      expect(res.groups[1].proposalIds).toEqual(['p2']);
 
       // Repeated call with same proposals hits cache
       const cachedRes = await groupWorkshopIdeasWithAI(sampleProposals, {
@@ -862,6 +865,69 @@ describe('Room Engine State Machine & Analytics', () => {
       });
       expect(errorRes.status).toBe('unavailable');
       expect(errorRes.groups).toHaveLength(0);
+    });
+
+    it('preserves endorsements across regrouping matching by group id or sorted proposalIds content key', () => {
+      let room = createRoomState();
+      // Existing group with endorsements on ['p1', 'p3'] across currents
+      room = setWorkshopIdeaGroups(
+        room,
+        [
+          {
+            id: 'wig_room_1',
+            themeTitle: 'Old Theme',
+            proposalIds: ['p3', 'p1'],
+            endorsements: ['client-a'],
+            createdAt: 1000,
+          },
+        ],
+        'grouped'
+      );
+
+      // Re-grouping produces a new ID or re-ordered proposalIds
+      room = setWorkshopIdeaGroups(
+        room,
+        [
+          {
+            id: 'wig_room_renamed',
+            themeTitle: 'New Cross-Current Theme',
+            proposalIds: ['p1', 'p3'],
+            endorsements: [],
+            createdAt: 2000,
+          },
+        ],
+        'grouped'
+      );
+
+      expect(room.workshopIdeaGroups?.['wig_room_renamed'].endorsements).toEqual(['client-a']);
+    });
+
+    it('renders room-wide ## Brainstorm Ideas & Priorities section when workshopIdeaGroups are present', () => {
+      let room = createRoomState(PHILANTHROPY_SCENARIOS.slice(0, 4), 'RPT');
+      room = submitWorkshopProposal(room, 'c1', 'current-01', 'general', 'Idea Alpha');
+      room = submitWorkshopProposal(room, 'c2', 'current-02', 'general', 'Idea Beta');
+      const p1 = Object.keys(room.workshopProposals || {})[0];
+      const p2 = Object.keys(room.workshopProposals || {})[1];
+
+      room = setWorkshopIdeaGroups(
+        room,
+        [
+          {
+            id: 'wig_room_1',
+            themeTitle: 'Connected Communication',
+            proposalIds: [p1, p2],
+            endorsements: ['v1', 'v2'],
+            createdAt: 1000,
+          },
+        ],
+        'grouped'
+      );
+
+      const md = formatWorkshopMarkdown(room);
+      expect(md).toContain('## Brainstorm Ideas & Priorities');
+      expect(md).toContain('- **[+2] Connected Communication**');
+      expect(md).toContain('Idea Alpha');
+      expect(md).toContain('Idea Beta');
     });
 
     it('formats short join link and base join domain cleanly', () => {

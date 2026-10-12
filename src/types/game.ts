@@ -107,7 +107,7 @@ export type WorkshopGroupingStatus = 'idle' | 'grouping' | 'grouped' | 'unavaila
 
 export interface WorkshopIdeaGroup {
   id: string;
-  currentId: RithmCurrentId;
+  currentId?: RithmCurrentId;
   themeTitle: string;
   proposalIds: string[];
   endorsements: string[]; // clientIds who +1'd this affinity group

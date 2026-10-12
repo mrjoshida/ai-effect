@@ -63,7 +63,6 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
       return 'current-01';
     });
   const [workshopProposalText, setWorkshopProposalText] = useState('');
-  const [stage2CurrentFilter, setStage2CurrentFilter] = useState<'all' | RithmCurrentId>('all');
   const [showStage2AddForm, setShowStage2AddForm] = useState(false);
   const [proposalAddedToast, setProposalAddedToast] = useState(false);
 
@@ -920,57 +919,54 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
           }
 
           // Stage 2: Large Group Share & Vote
-          const visibleCurrents =
-            stage2CurrentFilter === 'all'
-              ? WORKSHOP_CURRENTS
-              : WORKSHOP_CURRENTS.filter((c) => c.id === stage2CurrentFilter);
+          const allGroups: WorkshopIdeaGroup[] = Object.values(
+            room.workshopIdeaGroups || {}
+          ).sort(
+            (a, b) =>
+              (b.endorsements?.length || 0) - (a.endorsements?.length || 0) ||
+              a.createdAt - b.createdAt
+          );
+
+          const allProposals: WorkshopProposal[] = Object.values(
+            room.workshopProposals || {}
+          ).sort(
+            (a, b) =>
+              (b.endorsements?.length || 0) - (a.endorsements?.length || 0) ||
+              a.createdAt - b.createdAt
+          );
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {/* Header card with Filter Pill Bar */}
-              <div className="card-tabletop" style={{ padding: '1rem', borderLeft: '4px solid var(--currents-teal)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: '0.75rem',
-                        fontWeight: 700,
-                        color: 'var(--currents-teal)',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      The Four Currents Brainstorm • Stage 2
-                    </span>
-                  </div>
-                  <h3 style={{ fontSize: '1.25rem', margin: '0 0 0.2rem 0' }}>
-                    Full-Group Share &amp; Vote
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', margin: 0 }}>
-                    Tap +1 on the ideas across all Four Currents that resonate most with you.
-                  </p>
-                </div>
-
-                {/* Filter Pill Bar */}
-                <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '0.2rem' }}>
-                  <button
-                    onClick={() => setStage2CurrentFilter('all')}
-                    className={stage2CurrentFilter === 'all' ? 'btn-primary' : 'btn-secondary'}
-                    style={{ fontSize: '0.76rem', padding: '0.3rem 0.65rem', whiteSpace: 'nowrap' }}
+              {/* Header card */}
+              <div
+                className="card-tabletop"
+                style={{
+                  padding: '1rem',
+                  borderLeft: '4px solid var(--currents-teal)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.4rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.1rem' }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: 'var(--currents-teal)',
+                      textTransform: 'uppercase',
+                    }}
                   >
-                    All Currents
-                  </button>
-                  {WORKSHOP_CURRENTS.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setStage2CurrentFilter(c.id)}
-                      className={stage2CurrentFilter === c.id ? 'btn-primary' : 'btn-secondary'}
-                      style={{ fontSize: '0.76rem', padding: '0.3rem 0.65rem', whiteSpace: 'nowrap' }}
-                    >
-                      {c.tabLabel}
-                    </button>
-                  ))}
+                    The Four Currents Brainstorm • Stage 2
+                  </span>
                 </div>
+                <h3 style={{ fontSize: '1.25rem', margin: '0 0 0.15rem 0' }}>
+                  Full-Group Share &amp; Vote
+                </h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--ink-secondary)', margin: 0 }}>
+                  Tap +1 on the ideas from across the room that resonate most with you.
+                </p>
               </div>
 
               {/* Grouping Indicator */}
@@ -1002,184 +998,174 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
                   </p>
                 </div>
               ) : (
-                /* Voting Open */
+                /* Voting Open: Single unified room-wide list */
                 <>
-                  {visibleCurrents.map((c) => {
-                    const currentGroups: WorkshopIdeaGroup[] = Object.values(
-                      room.workshopIdeaGroups || {}
-                    )
-                      .filter((g) => g.currentId === c.id)
-                      .sort(
-                        (a, b) =>
-                          (b.endorsements?.length || 0) - (a.endorsements?.length || 0) ||
-                          a.createdAt - b.createdAt
-                      );
-
-                    const currentProposalsForC: WorkshopProposal[] = Object.values(
-                      room.workshopProposals || {}
-                    )
-                      .filter((p) => p.currentId === c.id)
-                      .sort(
-                        (a, b) =>
-                          (b.endorsements?.length || 0) - (a.endorsements?.length || 0) ||
-                          a.createdAt - b.createdAt
-                      );
-
-                    return (
-                      <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.25rem' }}>
-                          <span
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '0.76rem',
-                              fontWeight: 700,
-                              color: 'var(--currents-teal)',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            {c.tabLabel}: {c.title}
-                          </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    {hasAiGroups ? (
+                      allGroups.length === 0 ? (
+                        <div
+                          style={{
+                            padding: '1.25rem',
+                            fontSize: '0.82rem',
+                            color: 'var(--ink-muted)',
+                            fontStyle: 'italic',
+                            backgroundColor: 'var(--bg-card-subtle)',
+                            borderRadius: 'var(--radius-md)',
+                            textAlign: 'center',
+                          }}
+                        >
+                          No idea themes recorded yet.
                         </div>
+                      ) : (
+                        allGroups.map((group) => {
+                          const memberProposals = group.proposalIds
+                            .map((id) => room.workshopProposals?.[id])
+                            .filter(Boolean) as WorkshopProposal[];
+                          const hasEndorsed = (group.endorsements || []).includes(clientId);
+                          const showVerbatimList =
+                            memberProposals.length > 1 ||
+                            (memberProposals[0] && memberProposals[0].text !== group.themeTitle);
 
-                        {hasAiGroups ? (
-                          currentGroups.length === 0 ? (
-                            <div style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--ink-muted)', fontStyle: 'italic', backgroundColor: 'var(--bg-card-subtle)', borderRadius: 'var(--radius-sm)' }}>
-                              No idea themes for this Current.
-                            </div>
-                          ) : (
-                            currentGroups.map((group) => {
-                              const memberProposals = group.proposalIds
-                                .map((id) => room.workshopProposals?.[id])
-                                .filter(Boolean) as WorkshopProposal[];
-                              const hasEndorsed = (group.endorsements || []).includes(clientId);
-                              const showVerbatimList =
-                                memberProposals.length > 1 ||
-                                (memberProposals[0] && memberProposals[0].text !== group.themeTitle);
-
-                              return (
-                                <div
-                                  key={group.id}
-                                  className="workshop-proposal-card"
-                                  style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}
+                          return (
+                            <div
+                              key={group.id}
+                              className="workshop-proposal-card"
+                              style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}
+                            >
+                              {memberProposals.length > 1 && (
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 600,
+                                    padding: '0.1rem 0.4rem',
+                                    borderRadius: 'var(--radius-full)',
+                                    backgroundColor: 'var(--bg-tray)',
+                                    color: 'var(--ink-secondary)',
+                                    alignSelf: 'flex-start',
+                                    border: '1px solid var(--border-default)',
+                                  }}
                                 >
-                                  {memberProposals.length > 1 && (
-                                    <span
-                                      style={{
-                                        fontSize: '0.68rem',
-                                        fontWeight: 600,
-                                        padding: '0.1rem 0.4rem',
-                                        borderRadius: 'var(--radius-full)',
-                                        backgroundColor: 'var(--bg-tray)',
-                                        color: 'var(--ink-secondary)',
-                                        alignSelf: 'flex-start',
-                                        border: '1px solid var(--border-default)',
-                                      }}
-                                    >
-                                      {memberProposals.length} related ideas
-                                    </span>
-                                  )}
+                                  {memberProposals.length} related ideas
+                                </span>
+                              )}
 
-                                  <h4 style={{ fontSize: '0.94rem', margin: 0, fontWeight: 600, color: 'var(--ink-primary)', lineHeight: 1.35 }}>
-                                    {group.themeTitle}
-                                  </h4>
+                              <h4
+                                style={{
+                                  fontSize: '0.94rem',
+                                  margin: 0,
+                                  fontWeight: 600,
+                                  color: 'var(--ink-primary)',
+                                  lineHeight: 1.35,
+                                }}
+                              >
+                                {group.themeTitle}
+                              </h4>
 
-                                  {showVerbatimList ? (
-                                    <div
-                                      style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '0.3rem',
-                                        backgroundColor: 'var(--bg-tray)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        padding: '0.45rem 0.6rem',
-                                        fontSize: '0.76rem',
-                                        border: '1px solid var(--border-subtle)',
-                                      }}
-                                    >
-                                      {memberProposals.map((mp) => (
-                                        <div key={mp.id} style={{ color: 'var(--ink-secondary)', lineHeight: 1.35 }}>
-                                          "{mp.text}" <span style={{ fontStyle: 'italic', color: 'var(--ink-muted)' }}>— {mp.authorName}</span>
-                                        </div>
-                                      ))}
+                              {showVerbatimList ? (
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.3rem',
+                                    backgroundColor: 'var(--bg-tray)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    padding: '0.45rem 0.6rem',
+                                    fontSize: '0.76rem',
+                                    border: '1px solid var(--border-subtle)',
+                                  }}
+                                >
+                                  {memberProposals.map((mp) => (
+                                    <div key={mp.id} style={{ color: 'var(--ink-secondary)', lineHeight: 1.35 }}>
+                                      "{mp.text}" <span style={{ fontStyle: 'italic', color: 'var(--ink-muted)' }}>— {mp.authorName}</span>
                                     </div>
-                                  ) : (
-                                    memberProposals[0] && (
-                                      <div style={{ fontSize: '0.74rem', color: 'var(--ink-secondary)', fontStyle: 'italic' }}>
-                                        — {memberProposals[0].authorName}
-                                      </div>
-                                    )
-                                  )}
+                                  ))}
+                                </div>
+                              ) : (
+                                memberProposals[0] && (
+                                  <div style={{ fontSize: '0.74rem', color: 'var(--ink-secondary)', fontStyle: 'italic' }}>
+                                    — {memberProposals[0].authorName}
+                                  </div>
+                                )
+                              )}
 
-                                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
-                                    <button
-                                      id={`endorse-group-${group.id}`}
-                                      onClick={() => channel.sendToggleGroupEndorsement(group.id)}
-                                      className="btn-secondary"
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '0.35rem',
-                                        padding: '0.3rem 0.75rem',
-                                        fontSize: '0.78rem',
-                                        borderRadius: 'var(--radius-full)',
-                                        backgroundColor: hasEndorsed ? 'var(--stance-support-tint)' : 'var(--bg-tray)',
-                                        borderColor: hasEndorsed ? 'var(--stance-support-border)' : 'var(--border-default)',
-                                        color: hasEndorsed ? 'var(--stance-support-text)' : 'var(--ink-primary)',
-                                      }}
-                                    >
-                                      <Pebble variant={1} stance={hasEndorsed ? 'support' : 'neutral'} size="sm" />
-                                      <span style={{ fontWeight: 600 }}>{hasEndorsed ? '+1 Voted' : '+1'}</span>
-                                      <span>({group.endorsements?.length || 0})</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )
-                        ) : (
-                          currentProposalsForC.length === 0 ? (
-                            <div style={{ padding: '0.75rem', fontSize: '0.8rem', color: 'var(--ink-muted)', fontStyle: 'italic', backgroundColor: 'var(--bg-card-subtle)', borderRadius: 'var(--radius-sm)' }}>
-                              No ideas submitted for this Current.
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
+                                <button
+                                  id={`endorse-group-${group.id}`}
+                                  onClick={() => channel.sendToggleGroupEndorsement(group.id)}
+                                  className="btn-secondary"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    padding: '0.3rem 0.75rem',
+                                    fontSize: '0.78rem',
+                                    borderRadius: 'var(--radius-full)',
+                                    backgroundColor: hasEndorsed ? 'var(--stance-support-tint)' : 'var(--bg-tray)',
+                                    borderColor: hasEndorsed ? 'var(--stance-support-border)' : 'var(--border-default)',
+                                    color: hasEndorsed ? 'var(--stance-support-text)' : 'var(--ink-primary)',
+                                  }}
+                                >
+                                  <Pebble variant={1} stance={hasEndorsed ? 'support' : 'neutral'} size="sm" />
+                                  <span style={{ fontWeight: 600 }}>{hasEndorsed ? '+1 Voted' : '+1'}</span>
+                                  <span>({group.endorsements?.length || 0})</span>
+                                </button>
+                              </div>
                             </div>
-                          ) : (
-                            currentProposalsForC.map((p) => {
-                              const hasEndorsed = (p.endorsements || []).includes(clientId);
-                              return (
-                                <div key={p.id} className="workshop-proposal-card">
-                                  <p style={{ fontSize: '0.88rem', color: 'var(--ink-primary)', margin: 0, fontWeight: 500, lineHeight: 1.4 }}>
-                                    "{p.text}"
-                                  </p>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', fontSize: '0.74rem' }}>
-                                    <span style={{ color: 'var(--ink-secondary)', fontStyle: 'italic' }}>— {p.authorName}</span>
-                                    <button
-                                      id={`endorse-proposal-${p.id}`}
-                                      onClick={() => channel.sendToggleEndorsement(p.id)}
-                                      className="btn-secondary"
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '0.35rem',
-                                        padding: '0.25rem 0.65rem',
-                                        fontSize: '0.76rem',
-                                        borderRadius: 'var(--radius-full)',
-                                        backgroundColor: hasEndorsed ? 'var(--stance-support-tint)' : 'var(--bg-tray)',
-                                        borderColor: hasEndorsed ? 'var(--stance-support-border)' : 'var(--border-default)',
-                                        color: hasEndorsed ? 'var(--stance-support-text)' : 'var(--ink-primary)',
-                                      }}
-                                    >
-                                      <Pebble variant={1} stance={hasEndorsed ? 'support' : 'neutral'} size="sm" />
-                                      <span style={{ fontWeight: 600 }}>{hasEndorsed ? '+1 Voted' : '+1'}</span>
-                                      <span>({p.endorsements?.length || 0})</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )
-                        )}
-                      </div>
-                    );
-                  })}
+                          );
+                        })
+                      )
+                    ) : (
+                      allProposals.length === 0 ? (
+                        <div
+                          style={{
+                            padding: '1.25rem',
+                            fontSize: '0.82rem',
+                            color: 'var(--ink-muted)',
+                            fontStyle: 'italic',
+                            backgroundColor: 'var(--bg-card-subtle)',
+                            borderRadius: 'var(--radius-md)',
+                            textAlign: 'center',
+                          }}
+                        >
+                          No ideas submitted yet.
+                        </div>
+                      ) : (
+                        allProposals.map((p) => {
+                          const hasEndorsed = (p.endorsements || []).includes(clientId);
+                          return (
+                            <div key={p.id} className="workshop-proposal-card">
+                              <p style={{ fontSize: '0.88rem', color: 'var(--ink-primary)', margin: 0, fontWeight: 500, lineHeight: 1.4 }}>
+                                "{p.text}"
+                              </p>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', fontSize: '0.74rem' }}>
+                                <span style={{ color: 'var(--ink-secondary)', fontStyle: 'italic' }}>— {p.authorName}</span>
+                                <button
+                                  id={`endorse-proposal-${p.id}`}
+                                  onClick={() => channel.sendToggleEndorsement(p.id)}
+                                  className="btn-secondary"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.35rem',
+                                    padding: '0.25rem 0.65rem',
+                                    fontSize: '0.76rem',
+                                    borderRadius: 'var(--radius-full)',
+                                    backgroundColor: hasEndorsed ? 'var(--stance-support-tint)' : 'var(--bg-tray)',
+                                    borderColor: hasEndorsed ? 'var(--stance-support-border)' : 'var(--border-default)',
+                                    color: hasEndorsed ? 'var(--stance-support-text)' : 'var(--ink-primary)',
+                                  }}
+                                >
+                                  <Pebble variant={1} stance={hasEndorsed ? 'support' : 'neutral'} size="sm" />
+                                  <span style={{ fontWeight: 600 }}>{hasEndorsed ? '+1 Voted' : '+1'}</span>
+                                  <span>({p.endorsements?.length || 0})</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )
+                    )}
+                  </div>
 
                   {/* Collapsible late idea submission form */}
                   <div className="card-tabletop" style={{ padding: '0.85rem 1rem', marginTop: '0.5rem' }}>
@@ -1203,25 +1189,12 @@ export const ParticipantView: React.FC<ParticipantViewProps> = ({
 
                     {showStage2AddForm && (
                       <form onSubmit={handleProposalSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-                          {WORKSHOP_CURRENTS.map((c) => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onClick={() => setSelectedWorkshopCurrent(c.id)}
-                              className={selectedWorkshopCurrent === c.id ? 'btn-primary' : 'btn-secondary'}
-                              style={{ fontSize: '0.74rem', padding: '0.25rem 0.5rem', whiteSpace: 'nowrap' }}
-                            >
-                              {c.tabLabel}
-                            </button>
-                          ))}
-                        </div>
                         <input
                           type="text"
                           value={workshopProposalText}
                           onChange={(e) => setWorkshopProposalText(e.target.value)}
                           maxLength={140}
-                          placeholder={getPlaceholderForCurrent(selectedWorkshopCurrent)}
+                          placeholder="e.g. Share another idea for our team..."
                           style={{
                             width: '100%',
                             padding: '0.65rem 0.8rem',

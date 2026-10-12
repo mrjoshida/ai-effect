@@ -504,7 +504,7 @@ export function submitWorkshopProposal(
 
   let nextIdeaGroups = updatedRoom.workshopIdeaGroups;
   if (nextIdeaGroups && updatedRoom.workshopGroupingStatus === 'grouped') {
-    const groupId = `wig_${currentId}_${id}`;
+    const groupId = `wig_single_${id}`;
     nextIdeaGroups = {
       ...nextIdeaGroups,
       [groupId]: {
@@ -552,7 +552,7 @@ export function setWorkshopIdeaGroups(
   for (const eg of Object.values(existingGroups)) {
     if (eg.endorsements && eg.endorsements.length > 0) {
       existingById.set(eg.id, eg.endorsements);
-      const contentKey = `${eg.currentId}:${[...eg.proposalIds].sort().join(',')}`;
+      const contentKey = [...eg.proposalIds].sort().join(',');
       existingByContent.set(contentKey, eg.endorsements);
     }
   }
@@ -560,7 +560,7 @@ export function setWorkshopIdeaGroups(
   const nextGroups: Record<string, WorkshopIdeaGroup> = {};
 
   for (const group of groups) {
-    const contentKey = `${group.currentId}:${[...group.proposalIds].sort().join(',')}`;
+    const contentKey = [...group.proposalIds].sort().join(',');
     const preservedEndorsements =
       existingById.get(group.id) || existingByContent.get(contentKey) || [];
 
@@ -584,7 +584,7 @@ export function setWorkshopIdeaGroups(
     }
     for (const proposal of Object.values(room.workshopProposals || {})) {
       if (!coveredProposalIds.has(proposal.id)) {
-        const fallbackGroupId = `wig_${proposal.currentId}_${proposal.id}`;
+        const fallbackGroupId = `wig_single_${proposal.id}`;
         const preserved = existingById.get(fallbackGroupId) || [];
         nextGroups[fallbackGroupId] = {
           id: fallbackGroupId,
@@ -1064,6 +1064,31 @@ export function formatWorkshopMarkdown(room: RoomState): string {
   lines.push('');
   lines.push('---');
   lines.push('');
+
+  if (room.workshopIdeaGroups && Object.keys(room.workshopIdeaGroups).length > 0) {
+    lines.push('## Brainstorm Ideas & Priorities');
+    lines.push('');
+    const sortedGroups = Object.values(room.workshopIdeaGroups).sort(
+      (a, b) =>
+        (b.endorsements?.length || 0) - (a.endorsements?.length || 0) ||
+        a.createdAt - b.createdAt
+    );
+    const proposalMap = room.workshopProposals || {};
+    for (const group of sortedGroups) {
+      const count = group.endorsements?.length || 0;
+      lines.push(`- **[+${count}] ${group.themeTitle}**`);
+      for (const pid of group.proposalIds) {
+        const p = proposalMap[pid];
+        if (p) {
+          lines.push(`  - "${p.text}" *(${p.authorName})*`);
+        }
+      }
+    }
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+  }
+
   lines.push('## Navigating The Four Currents');
   lines.push('');
 
@@ -1074,55 +1099,42 @@ export function formatWorkshopMarkdown(room: RoomState): string {
     lines.push(`> ${bucket.current.pullDescription}`);
     lines.push('');
 
-    // Proposals / Ideas section
-    if (bucket.ideaGroups && bucket.ideaGroups.length > 0) {
-      lines.push('#### Brainstorm Ideas & Themes');
-      lines.push('');
-      const proposalMap = room.workshopProposals || {};
-      for (const group of bucket.ideaGroups) {
-        const count = group.endorsements?.length || 0;
-        lines.push(`- **[+${count}] ${group.themeTitle}**`);
-        for (const pid of group.proposalIds) {
-          const p = proposalMap[pid];
-          if (p) {
-            lines.push(`  - "${p.text}" *(${p.authorName})*`);
+    // Proposals / Ideas section (if not already rendered as room-wide idea groups)
+    if (!room.workshopIdeaGroups || Object.keys(room.workshopIdeaGroups).length === 0) {
+      if (bucket.proposals.some((p) => p.type === 'protect' || p.type === 'automate')) {
+        const protectProposals = bucket.proposals.filter((p) => p.type === 'protect');
+        const automateProposals = bucket.proposals.filter((p) => p.type === 'automate');
+        lines.push('#### Team Proposals & Priorities');
+        lines.push('');
+        lines.push('##### Protect & Build (Human Rituals & Red Lines)');
+        if (protectProposals.length > 0) {
+          for (const p of protectProposals) {
+            const count = p.endorsements?.length || 0;
+            lines.push(`- **[+${count}]** ${p.text} *(${p.authorName})*`);
           }
+        } else {
+          lines.push('_No protect proposals submitted yet._');
         }
-      }
-      lines.push('');
-    } else if (bucket.proposals.some((p) => p.type === 'protect' || p.type === 'automate')) {
-      const protectProposals = bucket.proposals.filter((p) => p.type === 'protect');
-      const automateProposals = bucket.proposals.filter((p) => p.type === 'automate');
-      lines.push('#### Team Proposals & Priorities');
-      lines.push('');
-      lines.push('##### Protect & Build (Human Rituals & Red Lines)');
-      if (protectProposals.length > 0) {
-        for (const p of protectProposals) {
+        lines.push('');
+        lines.push('##### Automate for Time (Gladly Delegate)');
+        if (automateProposals.length > 0) {
+          for (const p of automateProposals) {
+            const count = p.endorsements?.length || 0;
+            lines.push(`- **[+${count}]** ${p.text} *(${p.authorName})*`);
+          }
+        } else {
+          lines.push('_No automate proposals submitted yet._');
+        }
+        lines.push('');
+      } else if (bucket.proposals.length > 0) {
+        lines.push('#### Team Ideas & Priorities');
+        lines.push('');
+        for (const p of bucket.proposals) {
           const count = p.endorsements?.length || 0;
           lines.push(`- **[+${count}]** ${p.text} *(${p.authorName})*`);
         }
-      } else {
-        lines.push('_No protect proposals submitted yet._');
+        lines.push('');
       }
-      lines.push('');
-      lines.push('##### Automate for Time (Gladly Delegate)');
-      if (automateProposals.length > 0) {
-        for (const p of automateProposals) {
-          const count = p.endorsements?.length || 0;
-          lines.push(`- **[+${count}]** ${p.text} *(${p.authorName})*`);
-        }
-      } else {
-        lines.push('_No automate proposals submitted yet._');
-      }
-      lines.push('');
-    } else if (bucket.proposals.length > 0) {
-      lines.push('#### Team Ideas & Priorities');
-      lines.push('');
-      for (const p of bucket.proposals) {
-        const count = p.endorsements?.length || 0;
-        lines.push(`- **[+${count}]** ${p.text} *(${p.authorName})*`);
-      }
-      lines.push('');
     }
 
     lines.push('#### Team Norm / Commitment');

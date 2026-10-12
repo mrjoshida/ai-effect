@@ -79,7 +79,7 @@ export function setConfiguredAiKey(key: string): void {
 export function computeProposalsFingerprint(proposals: WorkshopProposal[]): string {
   const sorted = [...proposals].sort((a, b) => a.id.localeCompare(b.id));
   const combined = sorted
-    .map((p) => `${p.id}:${p.currentId}:${p.text.trim()}`)
+    .map((p) => `${p.id}:${p.text.trim()}`)
     .join('|');
   let hash = 0;
   for (let i = 0; i < combined.length; i++) {
@@ -136,31 +136,26 @@ export async function groupWorkshopIdeasWithAI(
     return { status: 'unavailable', groups: [] };
   }
 
-  // Group proposals by currentId
-  const proposalsByCurrent: Record<string, Array<{ id: string; text: string }>> = {};
+  // Build flat proposals list across the room
+  const flatProposals = proposals.map((p) => ({ id: p.id, text: p.text }));
   const proposalMap = new Map<string, WorkshopProposal>();
   for (const p of proposals) {
     proposalMap.set(p.id, p);
-    if (!proposalsByCurrent[p.currentId]) {
-      proposalsByCurrent[p.currentId] = [];
-    }
-    proposalsByCurrent[p.currentId].push({ id: p.id, text: p.text });
   }
 
   const prompt = [
-    'You are a workshop facilitator clustering brainstormed ideas into affinity themes.',
-    'For each Current, group overlapping ideas into clusters with a concise, approachable themeTitle (maximum 65 characters) and an array of proposalIds.',
+    'You are a workshop facilitator clustering brainstormed ideas from across the room into shared affinity themes.',
+    'Group overlapping or closely related ideas across all submissions into clusters with a concise, approachable themeTitle (maximum 65 characters) and an array of proposalIds.',
     'Any distinct idea that does not overlap with others must be returned as a single-item cluster using its text or a concise summary as themeTitle.',
-    'Every input proposalId must appear in exactly one group in its currentId.',
+    'Every input proposalId must appear in exactly one group.',
     '',
-    'Input proposals by Current:',
-    JSON.stringify(proposalsByCurrent, null, 2),
+    'Input ideas:',
+    JSON.stringify(flatProposals, null, 2),
     '',
     'Return JSON with this exact schema:',
     '{',
     '  "groups": [',
     '    {',
-    '      "currentId": "current-01",',
     '      "themeTitle": "Concise Theme Title",',
     '      "proposalIds": ["id1", "id2"]',
     '    }',
@@ -236,16 +231,14 @@ export async function groupWorkshopIdeasWithAI(
 
     const assignedProposalIds = new Set<string>();
     const normalizedGroups: WorkshopIdeaGroup[] = [];
-    const groupCounter: Record<string, number> = {};
+    let groupIdx = 0;
 
     for (const group of parsed.groups || []) {
-      if (!group.currentId || !Array.isArray(group.proposalIds)) continue;
-      const curId = group.currentId as RithmCurrentId;
+      if (!Array.isArray(group.proposalIds)) continue;
       const validIds = group.proposalIds.filter(
         (id) =>
           typeof id === 'string' &&
           proposalMap.has(id) &&
-          proposalMap.get(id)!.currentId === curId &&
           !assignedProposalIds.has(id)
       );
 
@@ -253,12 +246,12 @@ export async function groupWorkshopIdeasWithAI(
         for (const id of validIds) {
           assignedProposalIds.add(id);
         }
-        groupCounter[curId] = (groupCounter[curId] || 0) + 1;
-        const groupIdx = groupCounter[curId];
+        groupIdx++;
         const title = (group.themeTitle || 'Idea Cluster').trim().slice(0, 65);
+        const firstCurrentId = proposalMap.get(validIds[0])?.currentId;
         normalizedGroups.push({
-          id: `wig_${curId}_${groupIdx}`,
-          currentId: curId,
+          id: `wig_room_${groupIdx}`,
+          ...(firstCurrentId ? { currentId: firstCurrentId } : {}),
           themeTitle: title,
           proposalIds: validIds,
           endorsements: [],
@@ -271,16 +264,14 @@ export async function groupWorkshopIdeasWithAI(
     for (const proposal of proposals) {
       if (!assignedProposalIds.has(proposal.id)) {
         assignedProposalIds.add(proposal.id);
-        const curId = proposal.currentId;
-        groupCounter[curId] = (groupCounter[curId] || 0) + 1;
-        const groupIdx = groupCounter[curId];
+        groupIdx++;
         const title =
           proposal.text.length <= 65
             ? proposal.text
             : proposal.text.slice(0, 62) + '...';
         normalizedGroups.push({
-          id: `wig_${curId}_${groupIdx}`,
-          currentId: curId,
+          id: `wig_room_${groupIdx}`,
+          currentId: proposal.currentId,
           themeTitle: title,
           proposalIds: [proposal.id],
           endorsements: [],
