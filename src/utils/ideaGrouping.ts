@@ -170,12 +170,12 @@ export async function groupWorkshopIdeasWithAI(
 
   // Dynamically assemble API host to satisfy repo guardrail
   const hostPart = ['generativelanguage', ['goo', 'gleapis'].join(''), 'com'].join('.');
-  const endpoint = `https://${hostPart}/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const endpoint = `https://${hostPart}/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const fetchFn = options?.fetchImpl ?? fetch;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
 
   try {
     const response = await fetchFn(endpoint, {
@@ -196,6 +196,9 @@ export async function groupWorkshopIdeasWithAI(
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.2,
+          thinkingConfig: {
+            thinkingLevel: 'LOW',
+          },
         },
       }),
       signal: controller.signal,
@@ -208,7 +211,12 @@ export async function groupWorkshopIdeasWithAI(
     }
 
     const json = await response.json();
-    const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const parts: Array<{ text?: string; thought?: boolean }> =
+      json?.candidates?.[0]?.content?.parts || [];
+    const textPart =
+      parts.find((p) => typeof p.text === 'string' && !p.thought) ||
+      parts[parts.length - 1];
+    const rawText = textPart?.text;
     if (!rawText) {
       return { status: 'unavailable', groups: [] };
     }
