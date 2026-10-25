@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   RITHM_CURRENTS,
   RITHM_CURRENTS_LIST,
@@ -13,18 +13,36 @@ import {
   PHILANTHROPY_SCENARIOS,
   STANCE_LIST,
   STANCE_META,
+  clearSeenScenariosForTesting,
   generateCustomScenarioDeck,
   getMatchingScenariosPool,
   getPresetScenarios,
 } from '../src/content/scenarios';
 import {
+  addCustomScenario,
   computeCurrentsSynthesis,
   createRoomState,
   recordParticipantVote,
 } from '../src/state/roomEngine';
-import { CustomDeckOptions, RithmCurrentId, ScenarioCategory, Stance } from '../src/types/game';
+import {
+  clearActiveCustomDeckConfig,
+  draftScenarioWithAI,
+  exportCustomScenariosJson,
+  importCustomScenariosFromJson,
+  loadActiveCustomDeckConfig,
+  loadCustomScenarios,
+  normalizeCategory,
+  saveActiveCustomDeckConfig,
+  saveCustomScenarios,
+  validateAndSanitizeScenario,
+} from '../src/utils/customScenarios';
+import { CustomDeckOptions, RithmCurrentId, ScenarioCard, ScenarioCategory, Stance } from '../src/types/game';
 
 describe('Philanthropy Scenarios & The 4 Currents', () => {
+  beforeEach(() => {
+    clearSeenScenariosForTesting();
+  });
+
   describe('De-branding Guard (Zero Google / KSL)', () => {
     it('contains ZERO occurrences of "Google" or "KSL" (case-insensitive) across scenarios', () => {
       const forbiddenRegex = /(google|ksl)/i;
@@ -266,7 +284,7 @@ describe('Philanthropy Scenarios & The 4 Currents', () => {
   });
 
   describe('Deck Presets', () => {
-    it('generates spark-8 preset with 8 cards: 2 per domain, covering all 4 currents', () => {
+    it('generates spark-8 preset with 8 cards: 2 per foundational domain, covering all 4 currents', () => {
       const spark8 = getPresetScenarios('spark-8');
       expect(spark8).toHaveLength(8);
 
@@ -302,16 +320,142 @@ describe('Philanthropy Scenarios & The 4 Currents', () => {
       expect(catCounts.leadership).toBe(0);
       expect(catCounts.creative).toBe(0);
 
-      expect(currentCounts['current-01']).toBeGreaterThanOrEqual(1);
-      expect(currentCounts['current-02']).toBeGreaterThanOrEqual(1);
-      expect(currentCounts['current-03']).toBeGreaterThanOrEqual(1);
-      expect(currentCounts['current-04']).toBeGreaterThanOrEqual(1);
+      expect(currentCounts['current-01']).toBe(2);
+      expect(currentCounts['current-02']).toBe(2);
+      expect(currentCounts['current-03']).toBe(2);
+      expect(currentCounts['current-04']).toBe(2);
 
       expect(spark8[0].category).toBe('life');
       expect(spark8[1].category).toBe('community');
       for (let i = 1; i < spark8.length; i++) {
         expect(spark8[i].category).not.toBe(spark8[i - 1].category);
       }
+    });
+
+    it('cross-session rotation: 4 spark-8 sessions exhaust all 32 foundational scenarios with zero repeats', () => {
+      clearSeenScenariosForTesting();
+      const allSeenCards = new Set<string>();
+
+      for (let session = 1; session <= 4; session++) {
+        const deck = getPresetScenarios('spark-8');
+        expect(deck).toHaveLength(8);
+
+        // Starts with life -> community
+        expect(deck[0].category).toBe('life');
+        expect(deck[1].category).toBe('community');
+
+        const catCounts: Record<string, number> = {};
+        const curCounts: Record<string, number> = {};
+
+        for (let i = 0; i < deck.length; i++) {
+          const card = deck[i];
+          // No repeats across all sessions so far
+          expect(allSeenCards.has(card.id), `Card ${card.id} repeated in session ${session}`).toBe(false);
+          allSeenCards.add(card.id);
+
+          catCounts[card.category] = (catCounts[card.category] || 0) + 1;
+          curCounts[card.currentId] = (curCounts[card.currentId] || 0) + 1;
+
+          // No adjacent duplicate categories
+          if (i > 0) {
+            expect(card.category).not.toBe(deck[i - 1].category);
+          }
+        }
+
+        // 2 each across life, community, coworkers, grantees
+        expect(catCounts.life).toBe(2);
+        expect(catCounts.community).toBe(2);
+        expect(catCounts.coworkers).toBe(2);
+        expect(catCounts.grantees).toBe(2);
+
+        // 2 cards per Current
+        expect(curCounts['current-01']).toBe(2);
+        expect(curCounts['current-02']).toBe(2);
+        expect(curCounts['current-03']).toBe(2);
+        expect(curCounts['current-04']).toBe(2);
+      }
+
+      expect(allSeenCards.size).toBe(32);
+    });
+
+    it('cross-session non-repetition for Current Focus presets (current-01-focus .. current-04-focus)', () => {
+      const focusPresets = [
+        'current-01-focus',
+        'current-02-focus',
+        'current-03-focus',
+        'current-04-focus',
+      ] as const;
+
+      for (const preset of focusPresets) {
+        clearSeenScenariosForTesting();
+        const session1 = getPresetScenarios(preset);
+        const session2 = getPresetScenarios(preset);
+
+        expect(session1).toHaveLength(6);
+        expect(session2).toHaveLength(6);
+
+        const s1Ids = new Set(session1.map((s) => s.id));
+        const overlap = session2.filter((s) => s1Ids.has(s.id));
+        expect(overlap).toHaveLength(0);
+      }
+    });
+
+    it('full deck (full-20) returns all 64 cards and rotates opening 8 cards across sessions', () => {
+      clearSeenScenariosForTesting();
+      const deck1 = getPresetScenarios('full-20');
+      const deck2 = getPresetScenarios('full-20');
+
+      expect(deck1).toHaveLength(64);
+      expect(deck2).toHaveLength(64);
+
+      // Unique cards in both decks
+      expect(new Set(deck1.map((s) => s.id)).size).toBe(64);
+      expect(new Set(deck2.map((s) => s.id)).size).toBe(64);
+
+      // Both start with life -> community
+      expect(deck1[0].category).toBe('life');
+      expect(deck1[1].category).toBe('community');
+      expect(deck2[0].category).toBe('life');
+      expect(deck2[1].category).toBe('community');
+
+      // No adjacent duplicate categories
+      for (let i = 1; i < deck1.length; i++) {
+        expect(deck1[i].category).not.toBe(deck1[i - 1].category);
+      }
+      for (let i = 1; i < deck2.length; i++) {
+        expect(deck2[i].category).not.toBe(deck2[i - 1].category);
+      }
+
+      // 0 overlap in opening 8 cards between session 1 and session 2
+      const opening1Ids = new Set(deck1.slice(0, 8).map((s) => s.id));
+      const opening2 = deck2.slice(0, 8);
+      const overlap = opening2.filter((s) => opening1Ids.has(s.id));
+      expect(overlap).toHaveLength(0);
+    });
+
+    it('graceful wrap-around after exhausting the 32-card spark-8 pool', () => {
+      clearSeenScenariosForTesting();
+
+      const sessionDecks: ScenarioCard[][] = [];
+      for (let i = 0; i < 4; i++) {
+        sessionDecks.push(getPresetScenarios('spark-8'));
+      }
+
+      // Session 5 wrap-around
+      const session5 = getPresetScenarios('spark-8');
+      expect(session5).toHaveLength(8);
+      expect(session5[0].category).toBe('life');
+      expect(session5[1].category).toBe('community');
+
+      // Avoids repeating Session 4's cards (which were the most recently seen)
+      const session4Ids = new Set(sessionDecks[3].map((s) => s.id));
+      const overlapWithSession4 = session5.filter((s) => session4Ids.has(s.id));
+      expect(overlapWithSession4).toHaveLength(0);
+
+      // Avoids locking into a deterministic LRU cycle (Session 5 is not identical to Session 1)
+      const session1Ids = new Set(sessionDecks[0].map((s) => s.id));
+      const identicalToSession1 = session5.every((s) => session1Ids.has(s.id));
+      expect(identicalToSession1).toBe(false);
     });
 
     it('generates focus presets for each of the 4 Currents with 6 cards each', () => {
@@ -680,6 +824,219 @@ describe('Philanthropy Scenarios & The 4 Currents', () => {
           expect(visibleItems.length).toBeLessThanOrEqual(3);
         }
       }
+    });
+  });
+
+  describe('Custom Scenarios Studio & Live Addition', () => {
+    describe('validateAndSanitizeScenario', () => {
+      it('rejects invalid or incomplete inputs', () => {
+        expect(validateAndSanitizeScenario(null)).toBeNull();
+        expect(validateAndSanitizeScenario(undefined)).toBeNull();
+        expect(validateAndSanitizeScenario({})).toBeNull();
+        expect(validateAndSanitizeScenario({ title: 'Only Title' })).toBeNull();
+        expect(validateAndSanitizeScenario({ prompt: '   ' })).toBeNull();
+        expect(validateAndSanitizeScenario({ title: '   ', prompt: '   ' })).toBeNull();
+      });
+
+      it('succeeds when only prompt is provided and auto-generates a clean title', () => {
+        const scenario = validateAndSanitizeScenario({
+          prompt: 'A team lead uses AI to draft performance reviews for direct reports.',
+        });
+        expect(scenario).not.toBeNull();
+        expect(scenario?.prompt).toBe('A team lead uses AI to draft performance reviews for direct reports.');
+        expect(scenario?.title).toBe('A team lead uses AI to...');
+        expect(scenario?.currentId).toBe('current-01');
+        expect(scenario?.category).toBe('coworkers');
+        expect(scenario?.twist).toMatch(/^What if /);
+        expect(scenario?.discussionQuestion).toMatch(/\?$/);
+      });
+
+      it('normalizes categories and keywords', () => {
+        expect(normalizeCategory('Everyday Life')).toBe('life');
+        expect(normalizeCategory('community voice')).toBe('community');
+        expect(normalizeCategory('Teaching & Mentoring')).toBe('mentorship');
+        expect(normalizeCategory('Caregiving & Support')).toBe('caregiving');
+        expect(normalizeCategory('Working with Coworkers')).toBe('coworkers');
+        expect(normalizeCategory('Grantee partners')).toBe('grantees');
+        expect(normalizeCategory('Leadership & Governance')).toBe('leadership');
+        expect(normalizeCategory('Creative Craft')).toBe('creative');
+        expect(normalizeCategory('coworkers')).toBe('coworkers');
+        expect(normalizeCategory('grantees')).toBe('grantees');
+        expect(normalizeCategory('unknown')).toBe('coworkers');
+      });
+
+      it('sanitizes and formats twist with "What if " and question mark', () => {
+        const scenario = validateAndSanitizeScenario({
+          title: 'Resource Allocation',
+          prompt: 'A foundation uses algorithms to rank funding proposals.',
+          whatIf: 'the model favors established organizations',
+        });
+        expect(scenario).not.toBeNull();
+        expect(scenario?.twist).toBe('What if the model favors established organizations?');
+      });
+
+      it('strips emojis and replaces em dashes with hyphens', () => {
+        const scenario = validateAndSanitizeScenario({
+          title: 'Algorithmic Grantmaking \uD83E\uDD16',
+          prompt: 'Testing automated reviews \u2014 balancing human empathy.',
+          whatIf: 'What if staff disagree with the rating\u2753',
+          facilitatorNote: 'Consider the trade-off \u2014 efficiency vs trust.',
+        });
+        expect(scenario).not.toBeNull();
+        expect(scenario?.title).toBe('Algorithmic Grantmaking');
+        expect(scenario?.prompt).toBe('Testing automated reviews - balancing human empathy.');
+        expect(scenario?.twist).toBe('What if staff disagree with the rating?');
+        expect(scenario?.discussionQuestion).toBe('Consider the trade-off - efficiency vs trust?');
+      });
+
+      it('generates a mobileSummary ending in a period if not provided', () => {
+        const scenario = validateAndSanitizeScenario({
+          title: 'Rapid Response Fund',
+          prompt: 'Disaster strikes and automated grants disburse funds within hours. Local community leaders question oversight.',
+        });
+        expect(scenario).not.toBeNull();
+        expect(scenario?.mobileSummary).toBe('Disaster strikes and automated grants disburse funds within hours.');
+      });
+    });
+
+    describe('Storage, Import, and Export', () => {
+      it('exports and imports custom scenarios JSON', () => {
+        const cards = [
+          validateAndSanitizeScenario({
+            title: 'Card 1',
+            prompt: 'Prompt 1 text for testing.',
+          })!,
+          validateAndSanitizeScenario({
+            title: 'Card 2',
+            prompt: 'Prompt 2 text for testing.',
+          })!,
+        ];
+        const json = exportCustomScenariosJson(cards);
+        expect(typeof json).toBe('string');
+        const imported = importCustomScenariosFromJson(json);
+        expect(imported).toHaveLength(2);
+        expect(imported[0].title).toBe('Card 1');
+        expect(imported[1].title).toBe('Card 2');
+      });
+
+      it('handles wrapped scenarios object and invalid entries on import', () => {
+        const payload = JSON.stringify({
+          scenarios: [
+            { title: 'Valid Wrapped', prompt: 'Prompt for valid scenario.' },
+            { invalid: true },
+          ],
+        });
+        const imported = importCustomScenariosFromJson(payload);
+        expect(imported).toHaveLength(1);
+        expect(imported[0].title).toBe('Valid Wrapped');
+
+        expect(importCustomScenariosFromJson('corrupted json')).toEqual([]);
+      });
+
+      it('persists and loads active custom deck configuration', () => {
+        const testCard = validateAndSanitizeScenario({
+          title: 'Active Deck Test',
+          prompt: 'Testing active custom deck configuration storage.',
+        })!;
+        saveActiveCustomDeckConfig({
+          mode: 'prepend',
+          scenarios: [testCard],
+        });
+        const loaded = loadActiveCustomDeckConfig();
+        expect(loaded).not.toBeNull();
+        expect(loaded?.mode).toBe('prepend');
+        expect(loaded?.scenarios).toHaveLength(1);
+        expect(loaded?.scenarios[0].title).toBe('Active Deck Test');
+
+        clearActiveCustomDeckConfig();
+        expect(loadActiveCustomDeckConfig()).toBeNull();
+      });
+
+      it('persists and loads custom scenarios list', () => {
+        const testCard = validateAndSanitizeScenario({
+          title: 'Studio Stored Card',
+          prompt: 'Testing custom scenario persistent studio list.',
+        })!;
+        saveCustomScenarios([testCard]);
+        const loaded = loadCustomScenarios();
+        expect(loaded).toHaveLength(1);
+        expect(loaded[0].title).toBe('Studio Stored Card');
+
+        saveCustomScenarios([]);
+        expect(loadCustomScenarios()).toEqual([]);
+      });
+    });
+
+    describe('addCustomScenario Integration', () => {
+      it('appends a custom scenario card to an active RoomState and updates timestamp', () => {
+        const initialDeck = getPresetScenarios('spark-8');
+        const room = createRoomState(initialDeck, 'TEST');
+        const initialCount = room.scenarios.length;
+        const initialTimestamp = room.updatedAt;
+
+        const newCard = {
+          title: 'Live Added Scenario',
+          category: 'coworkers' as const,
+          currentId: 'current-01' as const,
+          mobileSummary: 'Live added mobile summary.',
+          prompt: 'Live prompt added mid-session by the facilitator.',
+          twist: 'What if participants resist the guidance?',
+          discussionQuestion: 'How should the team respond?',
+        };
+
+        const updatedRoom = addCustomScenario(room, newCard);
+        expect(updatedRoom.scenarios).toHaveLength(initialCount + 1);
+        const lastCard = updatedRoom.scenarios[updatedRoom.scenarios.length - 1];
+        expect(lastCard.title).toBe('Live Added Scenario');
+        expect(lastCard.id).toMatch(/^custom-/);
+        expect(updatedRoom.updatedAt).toBeGreaterThanOrEqual(initialTimestamp);
+      });
+    });
+
+    describe('draftScenarioWithAI', () => {
+      it('drafts scenario via mock fetch returning model response format', async () => {
+        const mockFetch: typeof fetch = async () => {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          title: 'AI Advisory Board',
+                          currentId: 'current-01',
+                          category: 'leadership',
+                          mobileSummary: 'A foundation uses AI to evaluate leadership decisions.',
+                          prompt: 'A foundation implements an automated grant allocation system.',
+                          twist: 'What if grassroots organizations are excluded by the score?',
+                          discussionQuestion: 'Examine who decides the weights and accountability?',
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          } as any;
+        };
+
+        const card = await draftScenarioWithAI({
+          prompt: 'grant allocation advisory',
+          currentId: 'current-01',
+          category: 'leadership',
+          apiKey: 'test-api-key',
+          fetchImpl: mockFetch,
+        });
+
+        expect(card).toBeDefined();
+        expect(card.title).toBe('AI Advisory Board');
+        expect(card.currentId).toBe('current-01');
+        expect(card.category).toBe('leadership');
+        expect(card.twist).toBe('What if grassroots organizations are excluded by the score?');
+      });
     });
   });
 });

@@ -3,9 +3,12 @@ import { CurrentsWorkshop } from '../components/CurrentsWorkshop';
 import { FramingSlides } from '../components/FramingSlides';
 import { Pebble } from '../components/Pebble';
 import { ResponseGraph } from '../components/ResponseGraph';
-import { CATEGORY_META } from '../content/scenarios';
+import { RITHM_CURRENTS_LIST } from '../content/currents';
+import { CATEGORY_LIST, CATEGORY_META } from '../content/scenarios';
 import {
+  addCustomScenario,
   navigateToScenario,
+  sanitizeCustomRoomCode,
   saveHostRoomState,
   setFramingSlideIndex,
   setRoomPhase,
@@ -17,15 +20,29 @@ import {
   triggerScenarioTwist,
   updateCurrentCommitment,
 } from '../state/roomEngine';
+import { detectCapabilities, getCachedCapabilities } from '../utils/capabilities';
 import { buildJoinUrl, formatShortJoinLink, generateJoinQrSvg } from '../utils/qrCode';
-import { getConfiguredAiKey, setConfiguredAiKey, groupWorkshopIdeasWithAI } from '../utils/ideaGrouping';
+import {
+  getConfiguredAiKey,
+  groupWorkshopIdeasWithAI,
+  isAiAvailable,
+  setConfiguredAiKey,
+} from '../utils/ideaGrouping';
+import {
+  buildParticipantJoinUrl,
+  clearActiveCustomDeckConfig,
+  draftScenarioWithAI,
+  loadActiveCustomDeckConfig,
+  validateAndSanitizeScenario,
+} from '../utils/customScenarios';
 import { HostRoomChannel } from '../utils/roomSync';
-import { RoomState, ScenarioCard, WorkshopStage } from '../types/game';
+import { RithmCurrentId, RoomState, ScenarioCard, ScenarioCategory, WorkshopStage } from '../types/game';
 import {
   CheckIcon,
   CloseIcon,
   CopyIcon,
   PencilIcon,
+  PlusIcon,
   QrIcon,
   SparkIcon,
   UsersIcon,
@@ -54,6 +71,24 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
   const [aiKey, setAiKey] = useState<string>(() => getConfiguredAiKey());
   const [isEditingKey, setIsEditingKey] = useState(false);
   const [keyInputVal, setKeyInputVal] = useState('');
+  const [, setCapsLoaded] = useState(false);
+
+  useEffect(() => {
+    detectCapabilities().then(() => {
+      setCapsLoaded(true);
+    });
+  }, []);
+
+  // Live Scenario Addition State
+  const [showAddScenarioModal, setShowAddScenarioModal] = useState(false);
+  const [addTopic, setAddTopic] = useState('');
+  const [addCurrentId, setAddCurrentId] = useState<RithmCurrentId>('current-01');
+  const [addCategory, setAddCategory] = useState<ScenarioCategory>('coworkers');
+  const [isDraftingLive, setIsDraftingLive] = useState(false);
+  const [draftLiveError, setDraftLiveError] = useState('');
+  const [addTitle, setAddTitle] = useState('');
+  const [addPrompt, setAddPrompt] = useState('');
+  const [addWhatIf, setAddWhatIf] = useState('');
 
   const roomRef = React.useRef(room);
   roomRef.current = room;
@@ -63,11 +98,12 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
 
   const handleCopyJoinLink = async () => {
     try {
+      const url = buildParticipantJoinUrl(room.code);
       if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(joinUrl);
+        await navigator.clipboard.writeText(url);
       } else {
         const textArea = document.createElement('textarea');
-        textArea.value = joinUrl;
+        textArea.value = url;
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');
@@ -79,6 +115,30 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
       // Ignore
     }
   };
+
+  useEffect(() => {
+    const activeConfig = loadActiveCustomDeckConfig();
+    if (activeConfig && activeConfig.scenarios && activeConfig.scenarios.length > 0) {
+      clearActiveCustomDeckConfig();
+      const existingIds = new Set(roomRef.current.scenarios.map((s) => s.id));
+      const newCards = activeConfig.scenarios.filter((s) => !existingIds.has(s.id));
+      if (newCards.length > 0) {
+        let updatedDeck: ScenarioCard[];
+        if (activeConfig.mode === 'custom-only') {
+          updatedDeck = activeConfig.scenarios;
+        } else {
+          updatedDeck = [...activeConfig.scenarios, ...roomRef.current.scenarios];
+        }
+        const updatedRoom: RoomState = {
+          ...roomRef.current,
+          scenarios: updatedDeck,
+          currentScenarioIndex: 0,
+          updatedAt: Date.now(),
+        };
+        updateRoomState(updatedRoom);
+      }
+    }
+  }, []);
 
   const handleOpenQrModal = () => {
     const current = getConfiguredAiKey();
@@ -97,7 +157,7 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
     if (stage === 'large_group') {
       const currentRoom = roomRef.current;
       const proposals = Object.values(currentRoom.workshopProposals || {});
-      const hasAiKey = Boolean(getConfiguredAiKey());
+      const hasAiKey = await isAiAvailable();
 
       if (proposals.length === 0 || !hasAiKey) {
         const next = setWorkshopIdeaGroups(
@@ -149,9 +209,9 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
 
   const handleSaveCustomCode = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const clean = draftCode.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
+    const clean = sanitizeCustomRoomCode(draftCode);
     setIsEditingCode(false);
-    if (clean && clean.length >= 2 && clean !== room.code) {
+    if (clean && clean !== room.code) {
       onChangeRoomCode?.(clean);
     } else {
       setDraftCode(room.code);
@@ -163,6 +223,52 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
     saveHostRoomState(next);
     channel.publishState(next);
     onUpdateRoom(next);
+  };
+
+  const handleDraftLiveScenario = async () => {
+    if (!addTopic.trim()) return;
+    setIsDraftingLive(true);
+    setDraftLiveError('');
+    try {
+      const card = await draftScenarioWithAI({
+        prompt: addTopic.trim(),
+        currentId: addCurrentId,
+        category: addCategory,
+      });
+      setAddTitle(card.title);
+      setAddCurrentId(card.currentId || addCurrentId);
+      setAddCategory(card.category || addCategory);
+      setAddPrompt(card.prompt);
+      setAddWhatIf(card.twist);
+    } catch (err: any) {
+      setDraftLiveError(err?.message || 'Could not draft scenario with AI');
+    } finally {
+      setIsDraftingLive(false);
+    }
+  };
+
+  const handleSaveLiveScenario = () => {
+    if (!addPrompt.trim()) return;
+    const sanitized = validateAndSanitizeScenario({
+      title: addTitle,
+      currentId: addCurrentId,
+      category: addCategory,
+      prompt: addPrompt,
+      whatIf: addWhatIf,
+    });
+    if (!sanitized) return;
+
+    const nextRoom = addCustomScenario(roomRef.current, sanitized);
+    updateRoomState(nextRoom);
+
+    setShowAddScenarioModal(false);
+    setAddTopic('');
+    setAddCurrentId('current-01');
+    setAddCategory('coworkers');
+    setAddTitle('');
+    setAddPrompt('');
+    setAddWhatIf('');
+    setDraftLiveError('');
   };
 
   const currentCard: ScenarioCard | undefined = room.scenarios[room.currentScenarioIndex];
@@ -400,6 +506,23 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 <PencilIcon size={12} style={{ color: 'var(--ink-muted)' }} />
               </button>
             )}
+
+            <button
+              id="copy-join-link-btn"
+              onClick={handleCopyJoinLink}
+              className="btn-secondary"
+              style={{
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.82rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+              title="Copy join link"
+            >
+              <CopyIcon size={14} />
+              <span>{copiedJoinLink ? 'Copied Join Link' : 'Copy Join Link'}</span>
+            </button>
 
             <button
               id="toggle-qr-btn"
@@ -1048,6 +1171,23 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                     )}
 
                     <button
+                      id="presenter-add-scenario-btn"
+                      type="button"
+                      onClick={() => setShowAddScenarioModal(true)}
+                      className="btn-secondary"
+                      style={{
+                        padding: '0.7rem 1.15rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                      }}
+                      title="Add a custom scenario live to this session"
+                    >
+                      <PlusIcon size={14} />
+                      <span>Add Scenario</span>
+                    </button>
+
+                    <button
                       id="advance-scenario-btn"
                       onClick={handleNextScenario}
                       className="btn-primary"
@@ -1139,25 +1279,297 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
               </div>
             </div>
 
-            {/* Local AI Grouping Key (Optional) */}
+            {/* Local AI Grouping Key (Optional - hidden when server AI is active) */}
+            {!getCachedCapabilities()?.aiAvailable && (
+              <div
+                style={{
+                  width: '100%',
+                  paddingTop: '1rem',
+                  borderTop: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem',
+                  textAlign: 'left',
+                }}
+              >
+                <label
+                  htmlFor="modal-host-ai-key-input"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: 'var(--ink-secondary)',
+                  }}
+                >
+                  <SparkIcon size={13} style={{ color: 'var(--currents-teal)' }} />
+                  <span>Idea Grouping Key (Optional)</span>
+                </label>
+
+                {aiKey && !isEditingKey ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.45rem 0.75rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-default)',
+                      backgroundColor: '#FFFDF9',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        fontSize: '0.78rem',
+                        color: 'var(--stance-support)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <CheckIcon size={12} />
+                      <span>Saved on this browser</span>
+                    </div>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <button
+                        id="modal-change-ai-key-btn"
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => {
+                          setKeyInputVal(aiKey);
+                          setIsEditingKey(true);
+                        }}
+                        style={{
+                          fontSize: '0.74rem',
+                          padding: '0.2rem 0.45rem',
+                          color: 'var(--ink-secondary)',
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Change
+                      </button>
+                      <button
+                        id="modal-clear-ai-key-btn"
+                        type="button"
+                        className="btn-ghost"
+                        onClick={() => {
+                          setConfiguredAiKey('');
+                          setAiKey('');
+                          setKeyInputVal('');
+                          setIsEditingKey(false);
+                        }}
+                        style={{
+                          fontSize: '0.74rem',
+                          padding: '0.2rem 0.45rem',
+                          color: 'var(--ink-muted)',
+                          textDecoration: 'underline',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <input
+                        id="modal-host-ai-key-input"
+                        type="password"
+                        value={keyInputVal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setKeyInputVal(val);
+                          setConfiguredAiKey(val);
+                          if (!val.trim()) {
+                            setAiKey('');
+                          }
+                        }}
+                        onBlur={() => {
+                          const trimmed = keyInputVal.trim();
+                          setConfiguredAiKey(trimmed);
+                          setAiKey(trimmed);
+                          if (isEditingKey) {
+                            setIsEditingKey(false);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const trimmed = keyInputVal.trim();
+                            setConfiguredAiKey(trimmed);
+                            setAiKey(trimmed);
+                            setIsEditingKey(false);
+                          }
+                        }}
+                        placeholder="Paste AI Studio key to group similar ideas"
+                        autoComplete="off"
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem 0.75rem',
+                          fontSize: '0.84rem',
+                          fontFamily: 'var(--font-mono)',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-default)',
+                          backgroundColor: '#FFFDF9',
+                          color: 'var(--ink-primary)',
+                        }}
+                      />
+                      {isEditingKey && (
+                        <button
+                          id="modal-save-ai-key-btn"
+                          type="button"
+                          className="btn-secondary"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            const trimmed = keyInputVal.trim();
+                            setConfiguredAiKey(trimmed);
+                            setAiKey(trimmed);
+                            setIsEditingKey(false);
+                          }}
+                          onClick={() => {
+                            const trimmed = keyInputVal.trim();
+                            setConfiguredAiKey(trimmed);
+                            setAiKey(trimmed);
+                            setIsEditingKey(false);
+                          }}
+                          style={{
+                            padding: '0.45rem 0.75rem',
+                            fontSize: '0.76rem',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Save
+                        </button>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.72rem',
+                        color: 'var(--ink-muted)',
+                        marginTop: '0.35rem',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      Enables automated AI theme clustering during Stage 2 of the Four Currents brainstorm.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAddScenarioModal && (
+        <div
+          id="add-scenario-modal-backdrop"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(28, 25, 23, 0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '1.5rem',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddScenarioModal(false);
+          }}
+        >
+          <div
+            className="card-tabletop"
+            style={{
+              maxWidth: '560px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              textAlign: 'left',
+              gap: '1rem',
+              position: 'relative',
+              padding: '1.5rem',
+            }}
+          >
+            <button
+              id="close-add-scenario-modal-btn"
+              onClick={() => setShowAddScenarioModal(false)}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--ink-muted)',
+              }}
+              title="Close modal"
+            >
+              <CloseIcon size={16} />
+            </button>
+
+            <div>
+              <span
+                style={{
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  color: 'var(--currents-teal)',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                Live Scenario Addition
+              </span>
+              <h3
+                style={{
+                  margin: '0.2rem 0 0.35rem',
+                  fontSize: '1.15rem',
+                  fontWeight: 700,
+                  color: 'var(--ink-primary)',
+                }}
+              >
+                Add Scenario to Active Deck
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '0.78rem',
+                  color: 'var(--ink-muted)',
+                  lineHeight: 1.4,
+                }}
+              >
+                Draft with AI or type a custom workplace dilemma. The card will be appended to this session deck in real time.
+              </p>
+            </div>
+
+            {/* AI Draft helper box */}
             <div
               style={{
-                width: '100%',
-                paddingTop: '1rem',
-                borderTop: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--bg-tray)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.85rem',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.45rem',
-                textAlign: 'left',
+                gap: '0.65rem',
               }}
             >
-              <label
-                htmlFor="modal-host-ai-key-input"
+              <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.35rem',
-                  fontSize: '0.8rem',
+                  fontSize: '0.76rem',
                   fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
@@ -1165,162 +1577,306 @@ export const PresenterView: React.FC<PresenterViewProps> = ({
                 }}
               >
                 <SparkIcon size={13} style={{ color: 'var(--currents-teal)' }} />
-                <span>Idea Grouping Key (Optional)</span>
-              </label>
+                <span>Draft with AI Assistant</span>
+              </div>
 
-              {aiKey && !isEditingKey ? (
-                <div
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <input
+                  id="live-scenario-topic-input"
+                  type="text"
+                  value={addTopic}
+                  onChange={(e) => setAddTopic(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleDraftLiveScenario();
+                    }
+                  }}
+                  placeholder="e.g. Budget reallocation vs grantee trust"
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.45rem 0.75rem',
-                    borderRadius: 'var(--radius-md)',
+                    flex: '1 1 200px',
+                    padding: '0.45rem 0.65rem',
+                    fontSize: '0.82rem',
+                    borderRadius: 'var(--radius-sm)',
                     border: '1px solid var(--border-default)',
                     backgroundColor: '#FFFDF9',
-                    gap: '0.5rem',
+                    color: 'var(--ink-primary)',
+                  }}
+                />
+
+                <select
+                  id="live-scenario-current-select"
+                  value={addCurrentId}
+                  onChange={(e) => setAddCurrentId(e.target.value as RithmCurrentId)}
+                  style={{
+                    padding: '0.45rem 0.65rem',
+                    fontSize: '0.82rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    color: 'var(--ink-primary)',
+                    maxWidth: '180px',
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.4rem',
-                      fontSize: '0.78rem',
-                      color: 'var(--stance-support)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    <CheckIcon size={12} />
-                    <span>Saved on this browser</span>
-                  </div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                    <button
-                      id="modal-change-ai-key-btn"
-                      type="button"
-                      className="btn-ghost"
-                      onClick={() => {
-                        setKeyInputVal(aiKey);
-                        setIsEditingKey(true);
-                      }}
-                      style={{
-                        fontSize: '0.74rem',
-                        padding: '0.2rem 0.45rem',
-                        color: 'var(--ink-secondary)',
-                        textDecoration: 'underline',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Change
-                    </button>
-                    <button
-                      id="modal-clear-ai-key-btn"
-                      type="button"
-                      className="btn-ghost"
-                      onClick={() => {
-                        setConfiguredAiKey('');
-                        setAiKey('');
-                        setKeyInputVal('');
-                        setIsEditingKey(false);
-                      }}
-                      style={{
-                        fontSize: '0.74rem',
-                        padding: '0.2rem 0.45rem',
-                        color: 'var(--ink-muted)',
-                        textDecoration: 'underline',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                    <input
-                      id="modal-host-ai-key-input"
-                      type="password"
-                      value={keyInputVal}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setKeyInputVal(val);
-                        setConfiguredAiKey(val);
-                        if (!val.trim()) {
-                          setAiKey('');
-                        }
-                      }}
-                      onBlur={() => {
-                        const trimmed = keyInputVal.trim();
-                        setConfiguredAiKey(trimmed);
-                        setAiKey(trimmed);
-                        if (isEditingKey) {
-                          setIsEditingKey(false);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const trimmed = keyInputVal.trim();
-                          setConfiguredAiKey(trimmed);
-                          setAiKey(trimmed);
-                          setIsEditingKey(false);
-                        }
-                      }}
-                      placeholder="Paste AI Studio key to group similar ideas"
-                      autoComplete="off"
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem 0.75rem',
-                        fontSize: '0.84rem',
-                        fontFamily: 'var(--font-mono)',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-default)',
-                        backgroundColor: '#FFFDF9',
-                        color: 'var(--ink-primary)',
-                      }}
-                    />
-                    {isEditingKey && (
-                      <button
-                        id="modal-save-ai-key-btn"
-                        type="button"
-                        className="btn-secondary"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const trimmed = keyInputVal.trim();
-                          setConfiguredAiKey(trimmed);
-                          setAiKey(trimmed);
-                          setIsEditingKey(false);
-                        }}
-                        onClick={() => {
-                          const trimmed = keyInputVal.trim();
-                          setConfiguredAiKey(trimmed);
-                          setAiKey(trimmed);
-                          setIsEditingKey(false);
-                        }}
-                        style={{
-                          padding: '0.45rem 0.75rem',
-                          fontSize: '0.76rem',
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        Save
-                      </button>
-                    )}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '0.72rem',
-                      color: 'var(--ink-muted)',
-                      marginTop: '0.35rem',
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    Enables automated AI theme clustering during Stage 2 of the Four Currents brainstorm.
-                  </div>
+                  {RITHM_CURRENTS_LIST.map((cur) => (
+                    <option key={cur.id} value={cur.id}>
+                      {cur.number}: {cur.title}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  id="live-scenario-category-select"
+                  value={addCategory}
+                  onChange={(e) => setAddCategory(e.target.value as ScenarioCategory)}
+                  style={{
+                    padding: '0.45rem 0.65rem',
+                    fontSize: '0.82rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    color: 'var(--ink-primary)',
+                  }}
+                >
+                  {CATEGORY_LIST.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.shortLabel}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  id="live-scenario-draft-btn"
+                  type="button"
+                  onClick={handleDraftLiveScenario}
+                  disabled={isDraftingLive || !addTopic.trim()}
+                  className="btn-secondary"
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    opacity: isDraftingLive || !addTopic.trim() ? 0.6 : 1,
+                  }}
+                >
+                  {isDraftingLive ? 'Drafting...' : 'Generate Draft'}
+                </button>
+              </div>
+
+              {draftLiveError && (
+                <div style={{ fontSize: '0.74rem', color: 'var(--color-crimson)' }}>
+                  {draftLiveError}
                 </div>
               )}
+            </div>
+
+            {/* Scenario Fields */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div>
+                <label
+                  htmlFor="live-scenario-current"
+                  style={{
+                    display: 'block',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    color: 'var(--ink-secondary)',
+                    marginBottom: '0.25rem',
+                  }}
+                >
+                  Current (Optional)
+                </label>
+                <select
+                  id="live-scenario-current"
+                  value={addCurrentId}
+                  onChange={(e) => setAddCurrentId(e.target.value as RithmCurrentId)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.84rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    color: 'var(--ink-primary)',
+                  }}
+                >
+                  {RITHM_CURRENTS_LIST.map((cur) => (
+                    <option key={cur.id} value={cur.id}>
+                      {cur.number}: {cur.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="live-scenario-category"
+                  style={{
+                    display: 'block',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    color: 'var(--ink-secondary)',
+                    marginBottom: '0.25rem',
+                  }}
+                >
+                  Domain Category (Optional)
+                </label>
+                <select
+                  id="live-scenario-category"
+                  value={addCategory}
+                  onChange={(e) => setAddCategory(e.target.value as ScenarioCategory)}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.84rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    color: 'var(--ink-primary)',
+                  }}
+                >
+                  {CATEGORY_LIST.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.label} ({cat.shortLabel})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="live-scenario-title"
+                  style={{
+                    display: 'block',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    color: 'var(--ink-secondary)',
+                    marginBottom: '0.25rem',
+                  }}
+                >
+                  Title (Optional)
+                </label>
+                <input
+                  id="live-scenario-title"
+                  type="text"
+                  value={addTitle}
+                  onChange={(e) => setAddTitle(e.target.value)}
+                  placeholder="Auto-generated from scenario text if left blank"
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.84rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    color: 'var(--ink-primary)',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="live-scenario-prompt"
+                  style={{
+                    display: 'block',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    color: 'var(--ink-secondary)',
+                    marginBottom: '0.25rem',
+                  }}
+                >
+                  Scenario Text / Dilemma (Required)
+                </label>
+                <textarea
+                  id="live-scenario-prompt"
+                  rows={2}
+                  value={addPrompt}
+                  onChange={(e) => setAddPrompt(e.target.value)}
+                  placeholder="Describe the initial decision point and tension."
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.84rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    color: 'var(--ink-primary)',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="live-scenario-whatif"
+                  style={{
+                    display: 'block',
+                    fontSize: '0.74rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    color: 'var(--ink-secondary)',
+                    marginBottom: '0.25rem',
+                  }}
+                >
+                  Twist: "What if...?" (Optional)
+                </label>
+                <input
+                  id="live-scenario-whatif"
+                  type="text"
+                  value={addWhatIf}
+                  onChange={(e) => setAddWhatIf(e.target.value)}
+                  placeholder="e.g. What if the recipient specifically requested human counsel?"
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.84rem',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-default)',
+                    backgroundColor: '#FFFDF9',
+                    color: 'var(--ink-primary)',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '0.65rem',
+                marginTop: '0.5rem',
+                paddingTop: '0.75rem',
+                borderTop: '1px solid var(--border-subtle)',
+              }}
+            >
+              <button
+                id="cancel-add-scenario-btn"
+                type="button"
+                className="btn-ghost"
+                onClick={() => setShowAddScenarioModal(false)}
+                style={{ padding: '0.5rem 0.85rem', fontSize: '0.82rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                id="save-live-scenario-btn"
+                type="button"
+                className="btn-primary"
+                onClick={handleSaveLiveScenario}
+                disabled={!addPrompt.trim()}
+                style={{
+                  padding: '0.5rem 1.15rem',
+                  fontSize: '0.82rem',
+                  opacity: !addPrompt.trim() ? 0.6 : 1,
+                }}
+              >
+                Add to Session Deck
+              </button>
             </div>
           </div>
         </div>

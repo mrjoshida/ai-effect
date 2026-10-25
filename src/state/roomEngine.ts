@@ -1,5 +1,9 @@
 import { RITHM_CURRENTS_LIST } from '../content/currents';
-import { PHILANTHROPY_SCENARIOS } from '../content/scenarios';
+import {
+  PHILANTHROPY_SCENARIOS,
+  clearSeenScenariosForTesting,
+  markScenariosSeen,
+} from '../content/scenarios';
 import {
   ClientInboundMessage,
   CurrentsSynthesisBucket,
@@ -22,6 +26,38 @@ import {
 } from '../types/game';
 
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export const RESERVED_ROOM_CODES: ReadonlySet<string> = new Set([
+  'API',
+  'ASSETS',
+  'HOST',
+  'JOIN',
+  'ADMIN',
+  'HEALTH',
+  'CAPABILITIES',
+  'ROOMS',
+  'DECKS',
+  'AI',
+  'STATIC',
+  'PUBLIC',
+  'DIST',
+  'INDEX',
+  'FAVICON',
+  'LOGIN',
+  'LOGOUT',
+]);
+
+export function isReservedRoomCode(code: string): boolean {
+  return RESERVED_ROOM_CODES.has(code.trim().toUpperCase());
+}
+
+export function sanitizeCustomRoomCode(raw: string): string {
+  const clean = raw.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
+  if (clean.length < 2 || isReservedRoomCode(clean)) {
+    return '';
+  }
+  return clean;
+}
 
 export const ALLITERATIVE_ANIMAL_NAMES: readonly string[] = [
   'Ambling Alpaca',
@@ -129,15 +165,21 @@ export function clearHostStorageForTesting(): void {
     }
   }
   inMemoryStorage.clear();
+  clearSeenScenariosForTesting();
 }
 
 export function generateRoomCode(length: number = 4): string {
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    const idx = Math.floor(Math.random() * ROOM_CODE_ALPHABET.length);
-    result += ROOM_CODE_ALPHABET[idx];
+  for (let attempt = 0; attempt < 20; attempt++) {
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      const idx = Math.floor(Math.random() * ROOM_CODE_ALPHABET.length);
+      result += ROOM_CODE_ALPHABET[idx];
+    }
+    if (!isReservedRoomCode(result)) {
+      return result;
+    }
   }
-  return result;
+  return 'DX8H';
 }
 
 export function getOrCreateClientId(): string {
@@ -169,7 +211,8 @@ export function createRoomState(
   scenarios: ScenarioCard[] = [],
   customCode?: string
 ): RoomState {
-  const code = (customCode || generateRoomCode(4)).toUpperCase();
+  const rawCustom = (customCode || '').trim().toUpperCase();
+  const code = rawCustom && !isReservedRoomCode(rawCustom) ? rawCustom : generateRoomCode(4);
   const now = Date.now();
   const deck = scenarios.length > 0 ? scenarios : PHILANTHROPY_SCENARIOS;
 
@@ -275,6 +318,7 @@ export function recordParticipantVote(
   stance: Stance,
   note?: string
 ): RoomState {
+  markScenariosSeen([scenarioId]);
   const now = Date.now();
 
   // Ensure participant exists
@@ -359,6 +403,10 @@ export function setRoomPhase(room: RoomState, phase: RoomPhase): RoomState {
   const now = Date.now();
   const currentCard = room.scenarios[room.currentScenarioIndex];
 
+  if (phase === 'voting' && currentCard) {
+    markScenariosSeen([currentCard.id]);
+  }
+
   let rounds = room.rounds;
   if (phase === 'twist' && currentCard) {
     const existingRound = rounds[currentCard.id] || {
@@ -405,6 +453,10 @@ export function navigateToScenario(room: RoomState, index: number): RoomState {
   const clampedIndex = Math.max(0, Math.min(index, room.scenarios.length - 1));
   const card = room.scenarios[clampedIndex];
   const now = Date.now();
+
+  if (card) {
+    markScenariosSeen([card.id]);
+  }
 
   let rounds = room.rounds;
   if (card && !rounds[card.id]) {

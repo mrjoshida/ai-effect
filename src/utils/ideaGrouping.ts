@@ -1,4 +1,5 @@
 import { RithmCurrentId, WorkshopIdeaGroup, WorkshopProposal } from '../types/game';
+import { detectCapabilities, getCachedCapabilities } from './capabilities';
 
 export const MIN_GROUPING_INTERVAL_MS = 30_000;
 export const FACILITATOR_API_KEY_STORAGE = 'ai-effect-facilitator-ai-key';
@@ -11,6 +12,22 @@ export function resetIdeaGroupingCacheForTesting(): void {
   lastCachedFingerprint = null;
   lastCachedGroups = [];
   lastApiCallTimestamp = 0;
+}
+
+export function isAiAvailableSync(): boolean {
+  const caps = getCachedCapabilities();
+  if (caps?.aiAvailable) return true;
+  return getConfiguredAiKey().length > 0;
+}
+
+export async function isAiAvailable(): Promise<boolean> {
+  const caps = await detectCapabilities();
+  if (caps.aiAvailable) return true;
+  return getConfiguredAiKey().length > 0;
+}
+
+export function hasAiGroupingKey(): boolean {
+  return isAiAvailableSync();
 }
 
 export function getConfiguredAiKey(): string {
@@ -130,18 +147,88 @@ export async function groupWorkshopIdeasWithAI(
     };
   }
 
-  // Resolve API key
+  const fetchFn = options?.fetchImpl ?? fetch;
+  const proposalMap = new Map<string, WorkshopProposal>();
+  for (const p of proposals) {
+    proposalMap.set(p.id, p);
+  }
+
+  // 1. Try internal keyless server endpoint if available
+  const caps = await detectCapabilities();
+  if (caps.internalServer && caps.aiAvailable) {
+    try {
+      const response = await fetchFn('/api/ai/group-ideas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ideas: proposals.map((p) => ({ id: p.id, text: p.text })),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const assignedProposalIds = new Set<string>();
+        const normalizedGroups: WorkshopIdeaGroup[] = [];
+        let groupIdx = 0;
+
+        for (const group of data.groups || []) {
+          const ids = (group.proposalIds || group.ideaIds || []).filter(
+            (id: string) => proposalMap.has(id) && !assignedProposalIds.has(id)
+          );
+          if (ids.length > 0) {
+            groupIdx++;
+            for (const id of ids) assignedProposalIds.add(id);
+            const title = (group.themeTitle || 'Idea Cluster').trim().slice(0, 65);
+            const firstCurrentId = proposalMap.get(ids[0])?.currentId;
+            normalizedGroups.push({
+              id: `wig_room_${groupIdx}`,
+              ...(firstCurrentId ? { currentId: firstCurrentId } : {}),
+              themeTitle: title,
+              proposalIds: ids,
+              endorsements: [],
+              createdAt: now,
+            });
+          }
+        }
+
+        // Singleton groups for any leftover proposals
+        for (const p of proposals) {
+          if (!assignedProposalIds.has(p.id)) {
+            assignedProposalIds.add(p.id);
+            groupIdx++;
+            const title = p.text.length <= 65 ? p.text : p.text.slice(0, 62) + '...';
+            normalizedGroups.push({
+              id: `wig_room_${groupIdx}`,
+              currentId: p.currentId,
+              themeTitle: title,
+              proposalIds: [p.id],
+              endorsements: [],
+              createdAt: now,
+            });
+          }
+        }
+
+        lastCachedFingerprint = fingerprint;
+        lastCachedGroups = normalizedGroups;
+        lastApiCallTimestamp = now;
+
+        return {
+          status: 'grouped',
+          groups: normalizedGroups,
+        };
+      }
+    } catch {
+      // Fall through to client API key if configured
+    }
+  }
+
+  // 2. Client-side API key fallback
   const apiKey = options?.apiKey ?? getConfiguredAiKey();
   if (!apiKey) {
     return { status: 'unavailable', groups: [] };
   }
 
-  // Build flat proposals list across the room
   const flatProposals = proposals.map((p) => ({ id: p.id, text: p.text }));
-  const proposalMap = new Map<string, WorkshopProposal>();
-  for (const p of proposals) {
-    proposalMap.set(p.id, p);
-  }
 
   const prompt = [
     'You are a workshop facilitator clustering brainstormed ideas from across the room into shared affinity themes.',
@@ -166,8 +253,6 @@ export async function groupWorkshopIdeasWithAI(
   // Dynamically assemble API host to satisfy repo guardrail
   const hostPart = ['generativelanguage', ['goo', 'gleapis'].join(''), 'com'].join('.');
   const endpoint = `https://${hostPart}/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const fetchFn = options?.fetchImpl ?? fetch;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20000);

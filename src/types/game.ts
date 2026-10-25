@@ -35,6 +35,7 @@ export interface CustomDeckOptions {
   currents?: RithmCurrentId[];
   count?: number;
   seed?: string | number;
+  excludeIds?: string[];
 }
 
 export interface CategoryMeta {

@@ -14,10 +14,12 @@ import {
   generateAlliterativeAnimalName,
   generateRoomCode,
   getOrCreateClientId,
+  isReservedRoomCode,
   joinParticipant,
   loadHostRoomState,
   navigateToScenario,
   recordParticipantVote,
+  sanitizeCustomRoomCode,
   saveHostRoomState,
   setFramingSlideIndex,
   setRoomPhase,
@@ -938,6 +940,22 @@ describe('Room Engine State Machine & Analytics', () => {
       expect(formatBaseJoinDomain('https://example.com/ai-effect/?code=WARM')).toBe(
         'example.com/ai-effect'
       );
+    });
+
+    it('rejects reserved route/subfolder names like host, join, api, and assets as room codes', () => {
+      expect(isReservedRoomCode('host')).toBe(true);
+      expect(isReservedRoomCode('JOIN')).toBe(true);
+      expect(isReservedRoomCode('api')).toBe(true);
+      expect(isReservedRoomCode('assets')).toBe(true);
+      expect(isReservedRoomCode('DX8H')).toBe(false);
+
+      expect(sanitizeCustomRoomCode('host')).toBe('');
+      expect(sanitizeCustomRoomCode('join')).toBe('');
+      expect(sanitizeCustomRoomCode('dx8h')).toBe('DX8H');
+
+      const fallbackRoom = createRoomState([], 'host');
+      expect(fallbackRoom.code).not.toBe('HOST');
+      expect(isReservedRoomCode(fallbackRoom.code)).toBe(false);
     });
   });
 });

@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import { getCachedCapabilities } from './capabilities';
 
 export function buildJoinUrl(code: string): string {
   const cleanCode = encodeURIComponent(code.trim().toUpperCase());
@@ -22,6 +23,14 @@ export async function generateJoinQrSvg(joinUrl: string): Promise<string> {
 }
 
 export function formatShortJoinLink(joinUrl: string): string {
+  const prefix = getCachedCapabilities()?.shortJoinPrefix;
+  if (prefix) {
+    const codeMatch = joinUrl.match(/[?&]code=([A-Za-z0-9-]+)/);
+    if (codeMatch && codeMatch[1]) {
+      return `${prefix.replace(/\/+$/, '')}/${codeMatch[1].toUpperCase()}`;
+    }
+    return prefix.replace(/\/+$/, '');
+  }
   let cleaned = joinUrl.trim().replace(/^https?:\/\//i, '');
   cleaned = cleaned.replace(/\/+\?/, '/?');
   if (!cleaned.includes('?')) {
@@ -31,6 +40,10 @@ export function formatShortJoinLink(joinUrl: string): string {
 }
 
 export function formatBaseJoinDomain(joinUrl: string): string {
+  const prefix = getCachedCapabilities()?.shortJoinPrefix;
+  if (prefix) {
+    return prefix.replace(/\/+$/, '');
+  }
   let cleaned = joinUrl.trim().replace(/^https?:\/\//i, '');
   cleaned = cleaned.split('?')[0].split('#')[0];
   cleaned = cleaned.replace(/\/+$/, '');

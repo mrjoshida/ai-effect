@@ -1262,6 +1262,132 @@ export function getMatchingScenariosPool(options?: CustomDeckOptions): ScenarioC
   });
 }
 
+export const SEEN_SCENARIOS_STORAGE_KEY = 'ai-effect-seen-scenarios-v1';
+let inMemorySeenScenarioIds: string[] = [];
+
+export function getRecentlySeenScenarioIds(): string[] {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(SEEN_SCENARIOS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          inMemorySeenScenarioIds = parsed.filter(
+            (item): item is string => typeof item === 'string'
+          );
+          return [...inMemorySeenScenarioIds];
+        }
+      }
+    } catch {
+      // Fallback to in-memory
+    }
+  }
+  return [...inMemorySeenScenarioIds];
+}
+
+export function markScenariosSeen(ids: string[]): void {
+  if (!ids || ids.length === 0) {
+    return;
+  }
+  const current = getRecentlySeenScenarioIds();
+  const incomingSet = new Set(ids);
+  const dedupedIncoming: string[] = [];
+  for (const id of ids) {
+    if (!dedupedIncoming.includes(id)) {
+      dedupedIncoming.push(id);
+    }
+  }
+  const filtered = current.filter((id) => !incomingSet.has(id));
+  const combined = [...filtered, ...dedupedIncoming];
+  const maxCapacity = ALL_SCENARIOS.length;
+  const capped =
+    combined.length > maxCapacity
+      ? combined.slice(combined.length - maxCapacity)
+      : combined;
+
+  inMemorySeenScenarioIds = [...capped];
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(SEEN_SCENARIOS_STORAGE_KEY, JSON.stringify(capped));
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+export function clearSeenScenariosForTesting(): void {
+  inMemorySeenScenarioIds = [];
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(SEEN_SCENARIOS_STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+function minCostAssignment(costMatrix: number[][]): number[] {
+  const n = costMatrix.length;
+  if (n === 0) return [];
+  const u = new Array(n + 1).fill(0);
+  const v = new Array(n + 1).fill(0);
+  const p = new Array(n + 1).fill(0);
+  const way = new Array(n + 1).fill(0);
+
+  for (let i = 1; i <= n; i++) {
+    p[0] = i;
+    let j0 = 0;
+    const minv = new Array(n + 1).fill(Infinity);
+    const used = new Array(n + 1).fill(false);
+
+    do {
+      used[j0] = true;
+      const i0 = p[j0];
+      let delta = Infinity;
+      let j1 = 0;
+
+      for (let j = 1; j <= n; j++) {
+        if (!used[j]) {
+          const cur = costMatrix[i0 - 1][j - 1] - u[i0] - v[j];
+          if (cur < minv[j]) {
+            minv[j] = cur;
+            way[j] = j0;
+          }
+          if (minv[j] < delta) {
+            delta = minv[j];
+            j1 = j;
+          }
+        }
+      }
+
+      for (let j = 0; j <= n; j++) {
+        if (used[j]) {
+          u[p[j]] += delta;
+          v[j] -= delta;
+        } else {
+          minv[j] -= delta;
+        }
+      }
+      j0 = j1;
+    } while (p[j0] !== 0);
+
+    do {
+      const j1 = way[j0];
+      p[j0] = p[j1];
+      j0 = j1;
+    } while (j0 !== 0);
+  }
+
+  const result = new Array(n);
+  for (let j = 1; j <= n; j++) {
+    if (p[j] > 0) {
+      result[p[j] - 1] = j - 1;
+    }
+  }
+  return result;
+}
+
 export function generateCustomScenarioDeck(options: CustomDeckOptions = {}): ScenarioCard[] {
   const activeCategories: ScenarioCategory[] =
     options.categories && options.categories.length > 0
@@ -1275,21 +1401,38 @@ export function generateCustomScenarioDeck(options: CustomDeckOptions = {}): Sce
 
   const prng = createPrng(options.seed);
 
-  // Group matching candidates into buckets by (category, currentId) and shuffle
-  const availableBuckets = new Map<string, ScenarioCard[]>();
-  let totalMatching = 0;
-
-  for (const cat of activeCategories) {
-    for (const cur of activeCurrents) {
-      const key = `${cat}:${cur}`;
-      const matching = RAW_SCENARIOS.filter(
-        (s) => s.category === cat && s.currentId === cur
-      );
-      availableBuckets.set(key, shuffleArray(matching, prng));
-      totalMatching += matching.length;
+  // Build active seen list
+  const activeSeenList: string[] = [];
+  if (options.seed !== undefined) {
+    if (options.excludeIds) {
+      for (const id of options.excludeIds) {
+        if (!activeSeenList.includes(id)) {
+          activeSeenList.push(id);
+        }
+      }
+    }
+  } else {
+    const recentSeen = getRecentlySeenScenarioIds();
+    for (const id of recentSeen) {
+      if (!activeSeenList.includes(id)) {
+        activeSeenList.push(id);
+      }
+    }
+    if (options.excludeIds) {
+      for (const id of options.excludeIds) {
+        const idx = activeSeenList.indexOf(id);
+        if (idx !== -1) {
+          activeSeenList.splice(idx, 1);
+        }
+        activeSeenList.push(id);
+      }
     }
   }
 
+  const poolCards = RAW_SCENARIOS.filter(
+    (s) => activeCategories.includes(s.category) && activeCurrents.includes(s.currentId)
+  );
+  const totalMatching = poolCards.length;
   if (totalMatching === 0) {
     return [];
   }
@@ -1299,56 +1442,167 @@ export function generateCustomScenarioDeck(options: CustomDeckOptions = {}): Sce
     return [];
   }
 
-  // Stratified sampling: pick cards evenly across selected categories and currents
-  const selectedCards: ScenarioCard[] = [];
-  let catIndex = 0;
-  let currentOffset = 0;
+  const poolIdSet = new Set(poolCards.map((s) => s.id));
+  const poolSeenList = activeSeenList.filter((id) => poolIdSet.has(id));
+  const seenRankMap = new Map<string, number>();
+  poolSeenList.forEach((id, idx) => {
+    seenRankMap.set(id, idx);
+  });
 
-  while (selectedCards.length < targetCount) {
-    const cat = activeCategories[catIndex % activeCategories.length];
-    let picked = false;
+  const cooldown = Math.max(targetCount, Math.floor(totalMatching / 2));
+  const allCardsHaveBeenSeen = poolSeenList.length >= totalMatching;
 
-    // Try rotating through active currents for this category
-    for (let step = 0; step < activeCurrents.length; step++) {
-      const cur = activeCurrents[(currentOffset + step) % activeCurrents.length];
+  function getCardCost(card: ScenarioCard, randomJitter: number = 0): number {
+    if (options.excludeIds && options.excludeIds.includes(card.id)) {
+      return 1e8;
+    }
+    const rank = seenRankMap.get(card.id);
+    if (rank === undefined) {
+      return 0 + randomJitter;
+    }
+    const seenDistance = poolSeenList.length - 1 - rank;
+    if (!allCardsHaveBeenSeen) {
+      const recency = Math.max(0, cooldown - seenDistance);
+      return 1_000_000 + recency * 1000 + randomJitter;
+    } else {
+      if (seenDistance >= cooldown) {
+        return 0 + randomJitter;
+      }
+      return 10_000 + (cooldown - seenDistance) * 1000 + randomJitter;
+    }
+  }
+
+  // Group matching candidates into buckets by (category, currentId), shuffle, and sort by seen rank
+  const availableBuckets = new Map<string, ScenarioCard[]>();
+
+  for (const cat of activeCategories) {
+    for (const cur of activeCurrents) {
       const key = `${cat}:${cur}`;
-      const bucket = availableBuckets.get(key);
+      const matching = poolCards.filter(
+        (s) => s.category === cat && s.currentId === cur
+      );
+      const shuffled = shuffleArray(matching, prng);
+      shuffled.sort((a, b) => getCardCost(a, 0) - getCardCost(b, 0));
+      availableBuckets.set(key, shuffled);
+    }
+  }
+
+  // Compute max cards available per category across active currents
+  const maxCardsForCat = new Map<ScenarioCategory, number>();
+  const allocatedPerCat = new Map<ScenarioCategory, number>();
+  for (const cat of activeCategories) {
+    let count = 0;
+    for (const cur of activeCurrents) {
+      count += availableBuckets.get(`${cat}:${cur}`)?.length ?? 0;
+    }
+    maxCardsForCat.set(cat, count);
+    allocatedPerCat.set(cat, 0);
+  }
+
+  // Build category passes: each pass has at most 1 slot per category
+  const categoryPasses: ScenarioCategory[][] = [];
+  let totalSlotsAllocated = 0;
+  let pass = 0;
+
+  while (totalSlotsAllocated < targetCount) {
+    const passOrder =
+      pass === 0
+        ? [
+            ...activeCategories.slice(0, 2),
+            ...shuffleArray(activeCategories.slice(2), prng),
+          ]
+        : shuffleArray(activeCategories, prng);
+
+    const currentPass: ScenarioCategory[] = [];
+    for (const cat of passOrder) {
+      if (totalSlotsAllocated >= targetCount) {
+        break;
+      }
+      if ((allocatedPerCat.get(cat) ?? 0) < (maxCardsForCat.get(cat) ?? 0)) {
+        currentPass.push(cat);
+        allocatedPerCat.set(cat, (allocatedPerCat.get(cat) ?? 0) + 1);
+        totalSlotsAllocated++;
+      }
+    }
+
+    if (currentPass.length === 0) {
+      break;
+    }
+    categoryPasses.push(currentPass);
+    pass++;
+  }
+
+  // Track global Current usage count to keep Currents balanced across the entire deck
+  const currentUsageCount = new Map<RithmCurrentId, number>();
+  for (const cur of activeCurrents) {
+    currentUsageCount.set(cur, 0);
+  }
+
+  const selectedCards: ScenarioCard[] = [];
+
+  for (const passCategories of categoryPasses) {
+    // Determine balanced current slots for this pass
+    const slotCurrents: RithmCurrentId[] = [];
+    for (let s = 0; s < passCategories.length; s++) {
+      const shuffledCurrents = shuffleArray(activeCurrents, prng);
+      let bestCur = shuffledCurrents[0];
+      let bestUsage =
+        (currentUsageCount.get(bestCur) ?? 0) +
+        slotCurrents.filter((c) => c === bestCur).length;
+
+      for (let k = 1; k < shuffledCurrents.length; k++) {
+        const cur = shuffledCurrents[k];
+        const usage =
+          (currentUsageCount.get(cur) ?? 0) +
+          slotCurrents.filter((c) => c === cur).length;
+        if (usage < bestUsage) {
+          bestCur = cur;
+          bestUsage = usage;
+        }
+      }
+      slotCurrents.push(bestCur);
+    }
+
+    // Build cost matrix between passCategories and slotCurrents
+    const costMatrix: number[][] = [];
+    for (let i = 0; i < passCategories.length; i++) {
+      const cat = passCategories[i];
+      const row: number[] = [];
+      for (let j = 0; j < slotCurrents.length; j++) {
+        const cur = slotCurrents[j];
+        const bucket = availableBuckets.get(`${cat}:${cur}`);
+        if (!bucket || bucket.length === 0) {
+          row.push(1e9);
+        } else {
+          row.push(getCardCost(bucket[0], prng() * 10));
+        }
+      }
+      costMatrix.push(row);
+    }
+
+    const assignment = minCostAssignment(costMatrix);
+
+    for (let i = 0; i < passCategories.length; i++) {
+      const cat = passCategories[i];
+      const cur = slotCurrents[assignment[i]];
+      const bucket = availableBuckets.get(`${cat}:${cur}`);
       if (bucket && bucket.length > 0) {
         selectedCards.push(bucket.shift()!);
-        currentOffset = (currentOffset + step + 1) % activeCurrents.length;
-        picked = true;
-        break;
+        currentUsageCount.set(cur, (currentUsageCount.get(cur) ?? 0) + 1);
       }
     }
+  }
 
-    // If preferred currents are empty for this category, try any remaining current
-    if (!picked) {
+  // Safety fill if any slots remain unfilled
+  if (selectedCards.length < targetCount) {
+    for (const cat of activeCategories) {
       for (const cur of activeCurrents) {
-        const key = `${cat}:${cur}`;
-        const bucket = availableBuckets.get(key);
-        if (bucket && bucket.length > 0) {
+        const bucket = availableBuckets.get(`${cat}:${cur}`);
+        while (bucket && bucket.length > 0 && selectedCards.length < targetCount) {
           selectedCards.push(bucket.shift()!);
-          picked = true;
-          break;
         }
       }
     }
-
-    // Safety check: if no card was picked, see if ANY bucket in any category has cards
-    if (!picked) {
-      let anyRemaining = false;
-      for (const [_, bucket] of availableBuckets.entries()) {
-        if (bucket.length > 0) {
-          anyRemaining = true;
-          break;
-        }
-      }
-      if (!anyRemaining) {
-        break;
-      }
-    }
-
-    catIndex++;
   }
 
   // Pedagogical ordering & Interleaving
@@ -1402,7 +1656,8 @@ export function generateCustomScenarioDeck(options: CustomDeckOptions = {}): Sce
         const topCandidates = candidates.filter(
           (cat) => cardsByCategory.get(cat)!.length === maxCount
         );
-        chosenCategory = topCandidates[0];
+        chosenCategory =
+          topCandidates[Math.floor(prng() * topCandidates.length)];
       }
     }
 
@@ -1411,8 +1666,19 @@ export function generateCustomScenarioDeck(options: CustomDeckOptions = {}): Sce
     lastCategory = chosenCategory;
   }
 
+  if (options.seed === undefined && deck.length > 0) {
+    markScenariosSeen(deck.slice(0, Math.min(deck.length, 8)).map((s) => s.id));
+  }
+
   return deck;
 }
+
+export const SPARK_8_CATEGORIES: ScenarioCategory[] = [
+  'life',
+  'community',
+  'coworkers',
+  'grantees',
+];
 
 export function getPresetScenarios(
   preset: DeckPresetId,
@@ -1420,30 +1686,33 @@ export function getPresetScenarios(
 ): ScenarioCard[] {
   switch (preset) {
     case 'spark-8':
-      return SPARK_8_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
+      return generateCustomScenarioDeck({
+        categories: SPARK_8_CATEGORIES,
+        count: 8,
+      });
     case 'current-01-focus':
-      return CURRENT_01_FOCUS_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
+      return generateCustomScenarioDeck({ currents: ['current-01'], count: 6 });
     case 'current-02-focus':
-      return CURRENT_02_FOCUS_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
+      return generateCustomScenarioDeck({ currents: ['current-02'], count: 6 });
     case 'current-03-focus':
-      return CURRENT_03_FOCUS_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
+      return generateCustomScenarioDeck({ currents: ['current-03'], count: 6 });
     case 'current-04-focus':
-      return CURRENT_04_FOCUS_IDS.map((id) => SCENARIOS_BY_ID.get(id)!).filter(Boolean);
+      return generateCustomScenarioDeck({ currents: ['current-04'], count: 6 });
     case 'full-20':
-      return [...ALL_SCENARIOS];
+      return generateCustomScenarioDeck({ count: ALL_SCENARIOS.length });
     case 'custom': {
       if (!customOrCategories) {
-        return [...ALL_SCENARIOS];
+        return generateCustomScenarioDeck({ count: ALL_SCENARIOS.length });
       }
       if (Array.isArray(customOrCategories)) {
         if (customOrCategories.length === 0) {
-          return [...ALL_SCENARIOS];
+          return generateCustomScenarioDeck({ count: ALL_SCENARIOS.length });
         }
         return generateCustomScenarioDeck({ categories: customOrCategories });
       }
       return generateCustomScenarioDeck(customOrCategories);
     }
     default:
-      return [...ALL_SCENARIOS];
+      return generateCustomScenarioDeck({ count: ALL_SCENARIOS.length });
   }
 }

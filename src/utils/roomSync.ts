@@ -7,6 +7,7 @@ import {
   SyncConnectionStatus,
   WorkshopProposalType,
 } from '../types/game';
+import { detectCapabilities } from './capabilities';
 
 export interface HostRoomChannel {
   publishState: (state: RoomState) => void;
@@ -114,7 +115,6 @@ export function createHostChannel(
     }
     recentInboundIds.set(key, now);
     if (recentInboundIds.size > 200) {
-      // Purge old keys
       for (const [k, t] of recentInboundIds.entries()) {
         if (now - t > 10000) recentInboundIds.delete(k);
       }
@@ -148,59 +148,101 @@ export function createHostChannel(
     }
   }
 
-  // Layer 2: MQTT over WSS
+  let useInternalServer = false;
+  let capabilitiesResolved = false;
+  let eventSource: EventSource | null = null;
   let mqttClient: MqttClient | null = null;
+  let pendingHostStatePublish: RoomState | null = null;
   const stateTopic = `rithm-ai-effect-v1/${cleanCode}/state`;
   const inboxTopic = `rithm-ai-effect-v1/${cleanCode}/inbox`;
 
   if (isBrowserEnvironment()) {
-    try {
-      const brokerUrl = PRIMARY_MQTT_BROKER;
-      mqttClient = mqtt.connect(brokerUrl, {
-        keepalive: 30,
-        reconnectPeriod: 3000,
-        connectTimeout: 7000,
-        clientId: 'host_' + Math.random().toString(16).substring(2, 10),
-      });
-
-      mqttClient.on('connect', () => {
+    detectCapabilities().then((caps) => {
+      capabilitiesResolved = true;
+      if (caps.internalServer) {
+        useInternalServer = true;
         updateStatus('connected');
-        mqttClient?.subscribe(inboxTopic, { qos: 1 });
-        // Publish retained state upon connect
-        if (bus.latestState) {
-          mqttClient?.publish(stateTopic, JSON.stringify(bus.latestState), {
-            qos: 1,
-            retain: true,
-          });
+
+        if (pendingHostStatePublish) {
+          const stateToFlush = pendingHostStatePublish;
+          pendingHostStatePublish = null;
+          fetch(`/api/rooms/${cleanCode}/state`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ state: stateToFlush }),
+          }).catch(() => {});
         }
-      });
 
-      mqttClient.on('reconnect', () => {
-        updateStatus('reconnecting');
-      });
-
-      mqttClient.on('offline', () => {
-        updateStatus('local_only');
-      });
-
-      mqttClient.on('error', () => {
-        // Fall back gracefully to local_only
-        updateStatus('local_only');
-      });
-
-      mqttClient.on('message', (topic, payload) => {
-        if (topic === inboxTopic) {
+        if (typeof EventSource !== 'undefined') {
           try {
-            const parsed = JSON.parse(payload.toString()) as ClientInboundMessage;
-            handleInboundSafe(parsed);
+            eventSource = new EventSource(`/api/rooms/${cleanCode}/events`);
+            eventSource.addEventListener('inbox', (event) => {
+              try {
+                const parsed = JSON.parse(event.data) as ClientInboundMessage;
+                handleInboundSafe(parsed);
+              } catch {
+                // Ignore malformed inbox payload
+              }
+            });
+            eventSource.onerror = () => {
+              // Maintain local sync if server SSE disconnects briefly
+            };
           } catch {
-            // Malformed message
+            // EventSource fallback
           }
         }
-      });
-    } catch {
-      updateStatus('local_only');
-    }
+        return;
+      }
+
+      // Public MQTT Fallback when internal server is not present
+      try {
+        const brokerUrl = PRIMARY_MQTT_BROKER;
+        mqttClient = mqtt.connect(brokerUrl, {
+          keepalive: 30,
+          reconnectPeriod: 3000,
+          connectTimeout: 7000,
+          clientId: 'host_' + Math.random().toString(16).substring(2, 10),
+        });
+
+        mqttClient.on('connect', () => {
+          updateStatus('connected');
+          mqttClient?.subscribe(inboxTopic, { qos: 1 });
+          const stateToSend = pendingHostStatePublish || bus.latestState;
+          pendingHostStatePublish = null;
+          if (stateToSend) {
+            mqttClient?.publish(stateTopic, JSON.stringify(stateToSend), {
+              qos: 1,
+              retain: true,
+            });
+          }
+        });
+
+        mqttClient.on('reconnect', () => {
+          updateStatus('reconnecting');
+        });
+
+        mqttClient.on('offline', () => {
+          updateStatus('local_only');
+        });
+
+        mqttClient.on('error', () => {
+          updateStatus('local_only');
+        });
+
+        mqttClient.on('message', (topic, payload) => {
+          if (topic === inboxTopic) {
+            try {
+              const parsed = JSON.parse(payload.toString()) as ClientInboundMessage;
+              handleInboundSafe(parsed);
+            } catch {
+              // Malformed message
+            }
+          }
+        });
+      } catch {
+        updateStatus('local_only');
+      }
+    });
   } else {
     updateStatus('local_only');
   }
@@ -208,12 +250,12 @@ export function createHostChannel(
   const publishState = (state: RoomState) => {
     bus.latestState = state;
 
-    // 1. Notify in-memory listeners
+    // 1. In-memory listeners
     for (const listener of bus.stateListeners) {
       try {
         listener(state);
       } catch {
-        // Ignore listener error
+        // Ignore
       }
     }
 
@@ -222,12 +264,22 @@ export function createHostChannel(
       try {
         bc.postMessage({ type: 'STATE', state });
       } catch {
-        // Ignore broadcast error
+        // Ignore
       }
     }
 
-    // 3. MQTT
-    if (mqttClient && mqttClient.connected) {
+    // 3. Internal Server or MQTT
+    if (!capabilitiesResolved && isBrowserEnvironment()) {
+      pendingHostStatePublish = state;
+    } else if (useInternalServer) {
+      fetch(`/api/rooms/${cleanCode}/state`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state }),
+      }).catch(() => {
+        // Ignore transient network errors
+      });
+    } else if (mqttClient && mqttClient.connected) {
       try {
         mqttClient.publish(stateTopic, JSON.stringify(state), {
           qos: 1,
@@ -248,6 +300,14 @@ export function createHostChannel(
         // Ignore
       }
       bc = null;
+    }
+    if (eventSource) {
+      try {
+        eventSource.close();
+      } catch {
+        // Ignore
+      }
+      eventSource = null;
     }
     if (mqttClient) {
       try {
@@ -339,86 +399,149 @@ export function createClientChannel(
     }
   }
 
-  // Layer 2: MQTT over WSS
+  let useInternalServer = false;
+  let eventSource: EventSource | null = null;
   let mqttClient: MqttClient | null = null;
   const stateTopic = `rithm-ai-effect-v1/${cleanCode}/state`;
   const inboxTopic = `rithm-ai-effect-v1/${cleanCode}/inbox`;
 
-  if (isBrowserEnvironment()) {
-    try {
-      const brokerUrl = PRIMARY_MQTT_BROKER;
-      mqttClient = mqtt.connect(brokerUrl, {
-        keepalive: 30,
-        reconnectPeriod: 3000,
-        connectTimeout: 7000,
-        clientId: 'client_' + Math.random().toString(16).substring(2, 10),
-      });
+  const flushQueueToServer = () => {
+    while (pendingQueue.length > 0) {
+      const msg = pendingQueue.shift();
+      if (msg) {
+        fetch(`/api/rooms/${cleanCode}/inbox`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(msg),
+        }).catch(() => {});
+      }
+    }
+  };
 
-      mqttClient.on('connect', () => {
-        updateStatus('connected');
-        mqttClient?.subscribe(stateTopic, { qos: 1 });
-        while (pendingQueue.length > 0) {
-          const queuedMsg = pendingQueue.shift();
-          if (queuedMsg) {
+  if (isBrowserEnvironment()) {
+    detectCapabilities().then(async (caps) => {
+      if (caps.internalServer) {
+        useInternalServer = true;
+
+        // Fetch current room state if server has it
+        try {
+          const res = await fetch(`/api/rooms/${cleanCode}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.state) {
+              handleStateSafe(data.state as RoomState);
+              updateStatus('connected');
+            }
+          }
+        } catch {
+          // Ignore fetch error
+        }
+
+        if (typeof EventSource !== 'undefined') {
+          try {
+            eventSource = new EventSource(`/api/rooms/${cleanCode}/events`);
+            eventSource.onopen = () => {
+              updateStatus('connected');
+              flushQueueToServer();
+              if (hasJoined) {
+                sendJoin(lastJoinName);
+              }
+            };
+            eventSource.onerror = () => {
+              updateStatus('local_only');
+            };
+            eventSource.addEventListener('state', (event) => {
+              try {
+                const parsed = JSON.parse(event.data) as RoomState;
+                handleStateSafe(parsed);
+              } catch {
+                // Ignore malformed state
+              }
+            });
+          } catch {
+            updateStatus('local_only');
+          }
+        }
+        flushQueueToServer();
+        return;
+      }
+
+      // Public MQTT fallback
+      try {
+        const brokerUrl = PRIMARY_MQTT_BROKER;
+        mqttClient = mqtt.connect(brokerUrl, {
+          keepalive: 30,
+          reconnectPeriod: 3000,
+          connectTimeout: 7000,
+          clientId: 'client_' + Math.random().toString(16).substring(2, 10),
+        });
+
+        mqttClient.on('connect', () => {
+          updateStatus('connected');
+          mqttClient?.subscribe(stateTopic, { qos: 1 });
+          while (pendingQueue.length > 0) {
+            const queuedMsg = pendingQueue.shift();
+            if (queuedMsg) {
+              try {
+                mqttClient?.publish(inboxTopic, JSON.stringify(queuedMsg), { qos: 1 });
+              } catch {
+                // Ignore
+              }
+            }
+          }
+          if (hasJoined) {
             try {
-              mqttClient?.publish(inboxTopic, JSON.stringify(queuedMsg), { qos: 1 });
+              const reconnectJoin: ClientInboundMessage = {
+                type: 'join',
+                code: cleanCode,
+                clientId,
+                name: lastJoinName,
+                timestamp: Date.now(),
+              };
+              mqttClient?.publish(inboxTopic, JSON.stringify(reconnectJoin), { qos: 1 });
             } catch {
               // Ignore
             }
           }
-        }
-        if (hasJoined) {
-          try {
-            const reconnectJoin: ClientInboundMessage = {
-              type: 'join',
-              code: cleanCode,
-              clientId,
-              name: lastJoinName,
-              timestamp: Date.now(),
-            };
-            mqttClient?.publish(inboxTopic, JSON.stringify(reconnectJoin), { qos: 1 });
-          } catch {
-            // Ignore
+        });
+
+        mqttClient.on('reconnect', () => {
+          updateStatus('reconnecting');
+        });
+
+        mqttClient.on('offline', () => {
+          updateStatus('local_only');
+        });
+
+        mqttClient.on('error', () => {
+          updateStatus('local_only');
+        });
+
+        mqttClient.on('message', (topic, payload) => {
+          if (topic === stateTopic) {
+            try {
+              const parsed = JSON.parse(payload.toString()) as RoomState;
+              handleStateSafe(parsed);
+            } catch {
+              // Malformed message
+            }
           }
-        }
-      });
-
-      mqttClient.on('reconnect', () => {
-        updateStatus('reconnecting');
-      });
-
-      mqttClient.on('offline', () => {
+        });
+      } catch {
         updateStatus('local_only');
-      });
-
-      mqttClient.on('error', () => {
-        updateStatus('local_only');
-      });
-
-      mqttClient.on('message', (topic, payload) => {
-        if (topic === stateTopic) {
-          try {
-            const parsed = JSON.parse(payload.toString()) as RoomState;
-            handleStateSafe(parsed);
-          } catch {
-            // Malformed message
-          }
-        }
-      });
-    } catch {
-      updateStatus('local_only');
-    }
+      }
+    });
   } else {
     updateStatus('local_only');
   }
 
   const sendInbound = (msg: ClientInboundMessage) => {
-    // 1. Notify in-memory listeners
+    // 1. In-memory listeners
     for (const listener of bus.inboundListeners) {
       try {
         listener(msg);
       } catch {
-        // Ignore listener error
+        // Ignore
       }
     }
 
@@ -431,8 +554,16 @@ export function createClientChannel(
       }
     }
 
-    // 3. MQTT
-    if (mqttClient && mqttClient.connected) {
+    // 3. Internal Server or MQTT
+    if (useInternalServer) {
+      fetch(`/api/rooms/${cleanCode}/inbox`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msg),
+      }).catch(() => {
+        pendingQueue.push(msg);
+      });
+    } else if (mqttClient && mqttClient.connected) {
       try {
         mqttClient.publish(inboxTopic, JSON.stringify(msg), { qos: 1 });
       } catch {
@@ -522,6 +653,14 @@ export function createClientChannel(
         // Ignore
       }
       bc = null;
+    }
+    if (eventSource) {
+      try {
+        eventSource.close();
+      } catch {
+        // Ignore
+      }
+      eventSource = null;
     }
     if (mqttClient) {
       try {

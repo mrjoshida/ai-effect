@@ -5,9 +5,12 @@ import {
   createRoomState,
   generateAlliterativeAnimalName,
   getOrCreateClientId,
+  isReservedRoomCode,
   loadHostRoomState,
+  sanitizeCustomRoomCode,
   saveHostRoomState,
 } from './state/roomEngine';
+import { detectCapabilities } from './utils/capabilities';
 import {
   createClientChannel,
   createHostChannel,
@@ -47,6 +50,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Warm capabilities cache on boot
+    detectCapabilities();
+
     // Immediately persist and clean any facilitator AI key in URL hash
     getConfiguredAiKey();
 
@@ -56,21 +62,44 @@ export const App: React.FC = () => {
     if (!codeParam && window.location.hash) {
       const hash = window.location.hash;
       const match = hash.match(/#(?:join\/|join\?code=)?([A-Za-z0-9-]{2,12})/);
-      if (match) {
+      if (match && !isReservedRoomCode(match[1])) {
         codeParam = match[1];
       }
     }
 
+    if (!codeParam && window.location.pathname && window.location.pathname !== '/') {
+      const pathMatch = window.location.pathname.match(
+        /^(?:\/ai-effect)?\/(?:join\/)?([A-Za-z0-9-]{2,12})\/?$/
+      );
+      if (
+        pathMatch &&
+        pathMatch[1] &&
+        !pathMatch[1].includes('.') &&
+        !isReservedRoomCode(pathMatch[1])
+      ) {
+        codeParam = pathMatch[1];
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(
+            null,
+            '',
+            `/?code=${encodeURIComponent(codeParam.toUpperCase())}`
+          );
+        }
+      }
+    }
+
     if (codeParam) {
-      const clean = codeParam.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
-      setInitialCodeFromUrl(clean);
-      handleJoinRoom(clean);
-      return;
+      const clean = sanitizeCustomRoomCode(codeParam);
+      if (clean) {
+        setInitialCodeFromUrl(clean);
+        handleJoinRoom(clean);
+        return;
+      }
     }
 
     const hostParam = urlParams.get('host');
     if (hostParam) {
-      const cleanHost = hostParam.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 12);
+      const cleanHost = sanitizeCustomRoomCode(hostParam);
       if (cleanHost) {
         const existing = loadHostRoomState(cleanHost);
         if (existing) {
